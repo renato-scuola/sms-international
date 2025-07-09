@@ -48,7 +48,8 @@ export async function POST(request: NextRequest) {
       '',  // Direct access
     ];
     const randomReferer = referers[Math.floor(Math.random() * referers.length)];
-      const formData = new URLSearchParams({
+    
+    const formData = new URLSearchParams({
       phone: phone,
       message: message,
       key: 'textbelt'
