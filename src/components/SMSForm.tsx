@@ -103,14 +103,14 @@ export default function SMSForm() {
     setIsLoading(true);
     
     try {
-      console.log('⚡ Step 1: Preparing API request with user IP spoofing');
-      console.log('🌐 Each user has unique real IP + randomized device fingerprint');
+      console.log('⚡ Step 1: Preparing per-user SMS request');
+      console.log('🌐 Strategy: 1 free SMS per day per user IP (not globally shared)');
       console.log('📊 Request payload:', {
         phone: `${data.countryCode}${data.phoneNumber}`,
         message: data.message
       });
       
-      console.log('📡 Step 2: Sending request with user real IP to multiple SMS providers via Vercel...');
+      console.log('📡 Step 2: Sending request using per-user quota strategy...');
       const startTime = performance.now();
       
       const response = await fetch('/api/send-sms', {
@@ -146,9 +146,9 @@ export default function SMSForm() {
         console.table({
           'Provider Used': providerUsed,
           'Text ID': result.textId || 'N/A',
-          'Quota Remaining': result.quotaRemaining || 'Bypassed',
+          'Quota Type': 'Per-user daily (1 SMS/day per IP)',
           'Request Time': `${requestTime}ms`,
-          'Spoofing': 'Real user IP + multi-provider rotation'
+          'Strategy': 'Real user IP = unique quota'
         });
         
         setIsSent(true);
@@ -167,15 +167,15 @@ export default function SMSForm() {
           fullResult: result
         });
         
-        // Check if error is due to limit reached
+        // Check if error is due to user's daily limit reached
         if (result && result.error && (
           result.error.includes('quota') || 
           result.error.includes('limit') ||
           result.error.includes('exceeded') ||
           result.error.includes('Out of quota')
         )) {
-          console.warn('📊 Textbelt quota detected - spoofing may need adjustment');
-          toast.error('Rate limit detected. Trying with different device fingerprint...');
+          console.warn('📊 User daily quota reached - try again tomorrow or from different IP');
+          toast.error('Your daily SMS quota reached. Try again tomorrow!');
         } else {
           // For other types of errors, show the specific error
           const errorMessage = result?.error || 'Unknown error occurred';

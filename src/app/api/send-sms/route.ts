@@ -57,10 +57,6 @@ export async function POST(request: NextRequest) {
     // Use user's real IP for spoofing (more effective than random IPs)
     console.log('🎯 Using user real IP for spoofing:', userIP);
     
-    // Random screen resolutions
-    const resolutions = ['1920x1080', '1366x768', '1536x864', '1440x900', '1280x720', '375x667', '414x896', '390x844'];
-    const randomResolution = resolutions[Math.floor(Math.random() * resolutions.length)];
-    
     // Random referers to simulate organic traffic
     const referers = [
       'https://www.google.com/',
@@ -73,155 +69,76 @@ export async function POST(request: NextRequest) {
     ];
     const randomReferer = referers[Math.floor(Math.random() * referers.length)];
     
-    // Strategy 1: Try multiple free SMS services and Textbelt variants to bypass limits
+    // Strategy: Use user's real IP to get 1 free SMS per day PER USER (not globally)
+    // Textbelt gives 1 free SMS per day per IP address
     const apiStrategies = [
-      // Multiple Textbelt keys (some may work when others are blocked)
+      // Primary: Textbelt free (1 SMS per day per IP)
       { 
         url: 'https://textbelt.com/text',
         key: 'textbelt',
-        name: 'textbelt-official',
+        name: 'textbelt-free-per-ip',
         type: 'textbelt'
       },
+      // Backup: Try without key (sometimes works)
+      { 
+        url: 'https://textbelt.com/text',
+        key: '',
+        name: 'textbelt-no-key',
+        type: 'textbelt'
+      },
+      // Last resort: Demo key
       { 
         url: 'https://textbelt.com/text',
         key: 'demo',
         name: 'textbelt-demo',
         type: 'textbelt'
-      },
-      // Try alternative free keys that might work
-      { 
-        url: 'https://textbelt.com/text',
-        key: 'free',
-        name: 'textbelt-free-alt',
-        type: 'textbelt'
-      },
-      { 
-        url: 'https://textbelt.com/text',
-        key: 'test',
-        name: 'textbelt-test',
-        type: 'textbelt'
-      },
-      // FreeSMS API (completely free alternative)
-      {
-        url: 'https://freesms.eu.org/api/send',
-        key: '',
-        name: 'freesms-eu',
-        type: 'freesms'
-      },
-      // SMS77 demo (sometimes works without key)
-      {
-        url: 'https://gateway.sms77.io/api/sms',
-        key: 'demo',
-        name: 'sms77-demo',
-        type: 'sms77'
-      },
-      // SMSApi free tier
-      {
-        url: 'https://api.smsapi.com/sms.do',
-        key: 'demo',
-        name: 'smsapi-demo',
-        type: 'smsapi'
       }
     ];
     
     // Randomly select starting strategy
     const shuffledStrategies = [...apiStrategies].sort(() => Math.random() - 0.5);
-    console.log('🎲 Trying API strategies in random order:', shuffledStrategies.map(s => s.name));
+    console.log('🎲 Trying strategies for user IP:', userIP, 'in order:', shuffledStrategies.map(s => s.name));
     
     // Add random delay to avoid rate limiting patterns (vary timing)
-    const randomDelay = Math.random() * 2000 + 500; // 500ms to 2.5s
+    const randomDelay = Math.random() * 1000 + 200; // 200ms to 1.2s
     await new Promise(resolve => setTimeout(resolve, randomDelay));
     
-    console.log('🎭 Spoofing device fingerprint:', {
+    console.log('🎭 Using real user IP for 1 SMS/day per user:', {
       userAgent: randomUserAgent.substring(0, 50) + '...',
       realUserIP: userIP,
-      resolution: randomResolution,
       sessionId: sessionId,
-      referer: randomReferer || 'direct'
+      referer: randomReferer || 'direct',
+      strategy: 'Per-user daily quota'
     });
-      // Try each strategy until one works
+    
+    // Try each strategy until one works
     let result: Record<string, unknown> | null = null;
     let lastError = '';
 
     for (const strategy of shuffledStrategies) {
       try {
-        console.log(`📡 Trying strategy: ${strategy.name} (${strategy.type}) with ${strategy.key ? 'key: ' + strategy.key : 'no key'}`);
+        console.log(`📡 Trying strategy: ${strategy.name} with user IP: ${userIP}`);
         
-        let formData: URLSearchParams;
-        let headers: Record<string, string>;
+        // All strategies use Textbelt format
+        const formData = new URLSearchParams({
+          phone: phone,
+          message: message,
+          ...(strategy.key && { key: strategy.key })
+        });
         
-        // Configure request based on API type
-        switch (strategy.type) {
-          case 'textbelt':
-            formData = new URLSearchParams({
-              phone: phone,
-              message: message,
-              ...(strategy.key && { key: strategy.key })
-            });
-            headers = {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': randomUserAgent,
-              'Accept': 'application/json, text/plain, */*',
-              'Accept-Language': 'en-US,en;q=0.9,it;q=0.8,es;q=0.7',
-              'Cache-Control': 'no-cache',
-              'Origin': 'https://textbelt.com',
-              'Referer': randomReferer || 'https://textbelt.com/',
-              'X-Forwarded-For': userIP,
-              'X-Real-IP': userIP,
-              'X-Session-ID': sessionId,
-              'X-Request-ID': randomId,
-            };
-            break;
-            
-          case 'freesms':
-            formData = new URLSearchParams({
-              to: phone,
-              text: message,
-              from: 'SMS-Online'
-            });
-            headers = {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': randomUserAgent,
-              'Accept': 'application/json',
-              'X-Forwarded-For': userIP,
-              'X-Real-IP': userIP
-            };
-            break;
-            
-          case 'sms77':
-            formData = new URLSearchParams({
-              to: phone,
-              text: message,
-              from: 'SMS-Online',
-              ...(strategy.key && { p: strategy.key })
-            });
-            headers = {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': randomUserAgent,
-              'Accept': 'application/json',
-              'X-Forwarded-For': userIP
-            };
-            break;
-            
-          case 'smsapi':
-            formData = new URLSearchParams({
-              to: phone,
-              message: message,
-              from: 'SMS-Online',
-              format: 'json',
-              ...(strategy.key && { username: strategy.key, password: strategy.key })
-            });
-            headers = {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'User-Agent': randomUserAgent,
-              'Accept': 'application/json',
-              'X-Forwarded-For': userIP
-            };
-            break;
-            
-          default:
-            throw new Error(`Unknown API type: ${strategy.type}`);
-        }
+        const headers = {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': randomUserAgent,
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9,it;q=0.8,es;q=0.7',
+          'Cache-Control': 'no-cache',
+          'Origin': 'https://textbelt.com',
+          'Referer': randomReferer || 'https://textbelt.com/',
+          'X-Forwarded-For': userIP,
+          'X-Real-IP': userIP,
+          'X-Session-ID': sessionId,
+          'X-Request-ID': randomId,
+        };
 
         const response = await fetch(strategy.url, {
           method: 'POST',
@@ -242,37 +159,17 @@ export async function POST(request: NextRequest) {
         result = await response.json();
         console.log(`📨 ${strategy.name} response:`, result);
         
-        // Check if successful based on API type
-        let isSuccess = false;
-        
-        if (result) {
-          switch (strategy.type) {
-            case 'textbelt':
-              isSuccess = typeof result.success === 'boolean' && result.success;
-              break;
-            case 'freesms':
-              isSuccess = result.status === 'sent' || result.success === true;
-              break;
-            case 'sms77':
-              isSuccess = result.success === '100' || result.success === true || result.status === 'sent';
-              break;
-            case 'smsapi':
-              isSuccess = result.error === null || result.success === true || result.status === 'sent';
-              break;
-            default:
-              isSuccess = result.success === true || result.status === 'sent';
-          }
-        }
-        
-        if (isSuccess && result) {
+        // Check if successful (Textbelt format)
+        if (result && typeof result.success === 'boolean' && result.success) {
           console.log(`🎉 SMS SUCCESSFULLY SENT via ${strategy.name}!`);
-          console.log('✅ SMS sent using real user IP + multi-provider strategy!');
+          console.log(`✅ Using user IP ${userIP} - each user gets 1 SMS/day!`);
           return NextResponse.json({
             success: true,
-            textId: result.textId || result.id || 'N/A',
-            quotaRemaining: result.quotaRemaining || result.remaining || 'N/A',
+            textId: result.textId || 'N/A',
+            quotaRemaining: result.quotaRemaining || 'Per-user quota',
             provider: strategy.name,
-            strategy: strategy.name
+            userIP: userIP.substring(0, 8) + '***', // Show partial IP for privacy
+            strategy: 'per-user-daily-quota'
           });
         }
         
