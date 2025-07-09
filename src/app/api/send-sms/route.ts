@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
+  console.log('🔥 API Route called - Starting SMS process...');
+  
   try {
+    console.log('📝 Parsing request body...');
     const { phone, message } = await request.json();
     
     if (!phone || !message) {
+      console.error('❌ Missing phone or message');
       return NextResponse.json({ error: 'Phone and message are required' }, { status: 400 });
     }
+    
+    console.log('✅ Request validated:', { phone: phone.substring(0, 5) + '***', messageLength: message.length });
     
     console.log('🚀 Sending SMS from Vercel serverless function...');
     console.log('📍 Vercel Region:', process.env.VERCEL_REGION || 'development');
@@ -69,44 +75,52 @@ export async function POST(request: NextRequest) {
     
     // Send to Textbelt with heavily spoofed headers
     console.log('📡 Sending to Textbelt with aggressive spoofing...');
-    const response = await fetch('https://textbelt.com/text', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': randomUserAgent,
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-US,en;q=0.9,it;q=0.8,es;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'cross-site',
-        'Origin': 'https://textbelt.com',
-        'Referer': randomReferer || 'https://textbelt.com/',
-        'X-Forwarded-For': randomIP,
-        'X-Real-IP': randomIP,
-        'X-Client-IP': randomIP,
-        'X-Originating-IP': randomIP,
-        'CF-Connecting-IP': randomIP,
-        'X-Forwarded-Host': 'textbelt.com',
-        'X-Requested-With': 'XMLHttpRequest',
-        'DNT': '1',
-        'Sec-GPC': '1',
-        'X-Session-ID': sessionId,
-        'X-Request-ID': randomId,
-        'X-Device-ID': Math.random().toString(36).substring(2, 15),
-        'X-Screen-Resolution': randomResolution,
-        'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
-        'X-Language': 'en-US',
-        'X-Platform': randomUserAgent.includes('Mobile') ? 'mobile' : 'desktop'
-      },
-      body: formData.toString(),
-    });
     
-    const result = await response.json();
-    console.log('📨 Textbelt response:', result);
+    let response: Response;
+    let result: Record<string, unknown>;
+    
+    try {
+      response = await fetch('https://textbelt.com/text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': randomUserAgent,
+          'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9,it;q=0.8,es;q=0.7',
+          'Cache-Control': 'no-cache',
+          'Origin': 'https://textbelt.com',
+          'Referer': randomReferer || 'https://textbelt.com/',
+          'X-Forwarded-For': randomIP,
+          'X-Real-IP': randomIP,
+          'X-Session-ID': sessionId,
+          'X-Request-ID': randomId,
+        },
+        body: formData.toString(),
+      });
+      
+      console.log('📡 Textbelt response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        console.error('❌ Textbelt HTTP error:', response.status);
+        const errorText = await response.text();
+        console.error('💥 Textbelt error response:', errorText);
+        return NextResponse.json({ 
+          error: `Textbelt HTTP ${response.status}: ${errorText}`, 
+          success: false 
+        });
+      }
+      
+      result = await response.json();
+      console.log('📨 Textbelt response:', result);
+      
+    } catch (fetchError) {
+      console.error('💀 Fetch error:', fetchError);
+      return NextResponse.json({ 
+        error: 'Failed to connect to Textbelt', 
+        details: fetchError instanceof Error ? fetchError.message : 'Unknown fetch error',
+        success: false 
+      }, { status: 500 });
+    }
 
     // Check if we got a successful response
     if (result && typeof result.success === 'boolean' && result.success) {
@@ -125,11 +139,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result || { error: 'SMS sending failed', success: false });
     
   } catch (error) {
-    console.error('SMS sending error:', error);
+    console.error('💀 CRITICAL ERROR in API route:', error);
+    console.error('🔍 Error type:', typeof error);
+    console.error('🔍 Error constructor:', error?.constructor?.name);
+    console.error('🔍 Error message:', error instanceof Error ? error.message : 'Non-Error object');
+    console.error('🔍 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    
     return NextResponse.json(
       { 
         error: 'Failed to send SMS',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        details: error instanceof Error ? error.message : 'Unknown error',
+        errorType: error?.constructor?.name || 'Unknown'
       }, 
       { status: 500 }
     );
