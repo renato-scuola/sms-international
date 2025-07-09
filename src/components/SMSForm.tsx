@@ -110,7 +110,7 @@ export default function SMSForm() {
         message: data.message
       });
       
-      console.log('📡 Step 2: Sending request with user real IP to Textbelt via Vercel...');
+      console.log('📡 Step 2: Sending request with user real IP to multiple SMS providers via Vercel...');
       const startTime = performance.now();
       
       const response = await fetch('/api/send-sms', {
@@ -142,16 +142,17 @@ export default function SMSForm() {
 
       if (result && result.success) {
         console.log('🎉 Step 5: SMS SUCCESSFULLY SENT!');
+        const providerUsed = result.provider || result.strategy || 'SMS Provider';
         console.table({
-          'Provider Used': 'Textbelt (real IP spoofed)',
+          'Provider Used': providerUsed,
           'Text ID': result.textId || 'N/A',
           'Quota Remaining': result.quotaRemaining || 'Bypassed',
           'Request Time': `${requestTime}ms`,
-          'Spoofing': 'Real user IP + randomized device'
+          'Spoofing': 'Real user IP + multi-provider rotation'
         });
         
         setIsSent(true);
-        toast.success('SMS sent via real IP spoofing!');
+        toast.success(`SMS sent via ${providerUsed}!`);
         
         setTimeout(() => {
           setIsSent(false);
