@@ -39,6 +39,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /sms-international
+          GITHUB_PAGES_BUILD: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
