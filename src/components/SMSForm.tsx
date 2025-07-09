@@ -44,7 +44,6 @@ export default function SMSForm() {
   useEffect(() => {
     // No limit checking needed anymore
     // This is a test comment to trigger GitHub Actions workflow
-    console.log('SMS Form component mounted successfully');
   }, []);
 
   const {
