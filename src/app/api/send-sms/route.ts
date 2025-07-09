@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     // Randomly choose starting provider to distribute load
     const startProvider = Math.random();
     let response: Response;
-    let result: any;
+    let result: Record<string, unknown> | null = null;
     
     if (startProvider < 0.7) {
       // 70% chance: Try Textbelt first (main provider)
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
     
     // If quota reached, try alternative approach
-    if (result.error && (result.error.includes('quota') || result.error.includes('limit') || result.error.includes('Out of quota'))) {
+    if (result && typeof result.error === 'string' && (result.error.includes('quota') || result.error.includes('limit') || result.error.includes('Out of quota'))) {
       console.log('⚠️ Primary quota reached, trying alternative SMS providers...');
       
       // Try alternative SMS provider 1: SMSdev
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
         
         if (response.ok) {
           result = await response.json();
-          if (result.situacao === 'APROVADO') {
+          if (result && typeof result.situacao === 'string' && result.situacao === 'APROVADO') {
             console.log('✅ SMS sent via SMSdev!');
             return NextResponse.json({ success: true, textId: result.id, provider: 'smsdev' });
           }
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
         
         if (response.ok) {
           result = await response.json();
-          if (result.status === 'sent') {
+          if (result && typeof result.status === 'string' && result.status === 'sent') {
             console.log('✅ SMS sent via FreeSMS!');
             return NextResponse.json({ success: true, textId: result.id, provider: 'freesms' });
           }
@@ -180,17 +180,17 @@ export async function POST(request: NextRequest) {
         console.log('❌ Final Textbelt attempt failed:', e);
       }
     }
+
+    // Check if we got a successful response from any provider
+    if (result && typeof result.success === 'boolean' && result.success) {
+      console.log('📨 SMS sent successfully!');
+      console.log('✅ SMS sent using Vercel IP rotation + randomized fingerprint!');
+      return NextResponse.json(result);
+    }
     
     // If we reach here, all providers failed
     console.log('❌ All SMS providers failed');
     return NextResponse.json(result || { error: 'All SMS providers exhausted', success: false });
-    
-    // Check if we got a successful response
-    if (result && result.success) {
-      console.log('📨 SMS sent successfully on first attempt!');
-      console.log('✅ SMS sent using Vercel IP rotation + randomized fingerprint!');
-      return NextResponse.json(result);
-    }
     
   } catch (error) {
     console.error('SMS sending error:', error);
