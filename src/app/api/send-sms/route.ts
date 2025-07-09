@@ -1,23 +1,11 @@
-// Vercel serverless function for SMS sending with IP rotation
-export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-  
+import { NextRequest, NextResponse } from 'next/server';
+
+export async function POST(request: NextRequest) {
   try {
-    const { phone, message } = req.body;
+    const { phone, message } = await request.json();
     
     if (!phone || !message) {
-      return res.status(400).json({ error: 'Phone and message are required' });
+      return NextResponse.json({ error: 'Phone and message are required' }, { status: 400 });
     }
     
     console.log('Sending SMS from Vercel function with automatic IP rotation...');
@@ -46,13 +34,27 @@ export default async function handler(req, res) {
     
     console.log('Textbelt response:', result);
     
-    return res.status(200).json(result);
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('SMS sending error:', error);
-    return res.status(500).json({ 
-      error: 'Failed to send SMS',
-      details: error.message 
-    });
+    return NextResponse.json(
+      { 
+        error: 'Failed to send SMS',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      }, 
+      { status: 500 }
+    );
   }
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }
