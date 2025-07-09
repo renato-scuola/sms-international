@@ -69,8 +69,8 @@ export default function SMSForm() {
     setIsLoading(true);
     
     try {
-      // Use only allorigins.win as it's the only one that works reliably
-      const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://textbelt.com/text');
+      // Use allorigins.win (not raw) to preserve POST parameters better
+      const proxyUrl = 'https://api.allorigins.win/get';
       
       const formData = new URLSearchParams({
         phone: `${data.countryCode}${data.phoneNumber}`,
@@ -82,16 +82,30 @@ export default function SMSForm() {
       const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: formData.toString(),
+        body: JSON.stringify({
+          url: 'https://textbelt.com/text',
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: formData.toString()
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const result = await response.json();
+      const proxyResult = await response.json();
+      console.log('Proxy response:', proxyResult);
+      
+      if (!proxyResult.contents) {
+        throw new Error('No response from proxy');
+      }
+      
+      const result = JSON.parse(proxyResult.contents);
       console.log('SMS API response:', result);
 
       if (result && result.success) {
