@@ -64,13 +64,13 @@ export default function SMSForm() {
   const watchedMessage = watch('message');
   const messageLength = watchedMessage?.length || 0;
 
-  // SMS sending function using Vercel serverless function
+  // SMS sending function using Vercel serverless function with automatic IP rotation
   const sendSMS = async (data: SMSFormData) => {
     setIsLoading(true);
     
     try {
       console.log('Sending SMS via Vercel serverless function...');
-      console.log('Each Vercel function call uses different server IPs');
+      console.log('Each Vercel function call automatically uses different server IPs');
       
       const response = await fetch('/api/send-sms', {
         method: 'POST',
@@ -84,7 +84,7 @@ export default function SMSForm() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
 

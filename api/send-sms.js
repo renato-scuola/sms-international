@@ -20,16 +20,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Phone and message are required' });
     }
     
-    console.log('Sending SMS from Vercel function...');
-    console.log('Server IP will be different for each deployment region');
-    
-    // Use different Textbelt endpoints to simulate IP rotation
-    const textbeltEndpoints = [
-      'https://textbelt.com/text',
-      'https://api.textbelt.com/text'
-    ];
-    
-    const randomEndpoint = textbeltEndpoints[Math.floor(Math.random() * textbeltEndpoints.length)];
+    console.log('Sending SMS from Vercel function with automatic IP rotation...');
     
     const formData = new URLSearchParams({
       phone: phone,
@@ -37,11 +28,12 @@ export default async function handler(req, res) {
       key: 'textbelt'
     });
     
-    const response = await fetch(randomEndpoint, {
+    // Each Vercel function execution uses different server IPs automatically
+    const response = await fetch('https://textbelt.com/text', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': `VercelSMS/${Date.now()}`,
+        'User-Agent': `VercelSMS-${Date.now()}`,
       },
       body: formData.toString(),
     });
