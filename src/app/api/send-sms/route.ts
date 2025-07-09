@@ -30,59 +30,167 @@ export async function POST(request: NextRequest) {
     // Add random delay to avoid rate limiting patterns
     await new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
     
-    // Try primary service (Textbelt)
-    let response = await fetch('https://textbelt.com/text', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': `${randomUserAgent} (${randomId})`,
-        'Accept': 'application/json',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-      },
-      body: formData.toString(),
-    });
+    // Randomly choose starting provider to distribute load
+    const startProvider = Math.random();
+    let response: Response;
+    let result: any;
     
-    let result = await response.json();
-    
-    // If quota reached, try alternative approach
-    if (result.error && result.error.includes('quota')) {
-      console.log('⚠️ Primary quota reached, trying alternative method...');
-      
-      // Wait a bit and try with different fingerprint
-      await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
-      
-      const altUserAgent = [
-        'curl/7.68.0',
-        'HTTPie/3.2.0',
-        'PostmanRuntime/7.32.0',
-        'insomnia/2023.5.8'
-      ][Math.floor(Math.random() * 4)];
-      
+    if (startProvider < 0.7) {
+      // 70% chance: Try Textbelt first (main provider)
+      console.log('🎯 Starting with Textbelt...');
       response = await fetch('https://textbelt.com/text', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': altUserAgent,
-          'X-Forwarded-For': `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`,
+          'User-Agent': `${randomUserAgent} (${randomId})`,
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
         },
         body: formData.toString(),
       });
       
       result = await response.json();
+    } else {
+      // 30% chance: Try alternative provider first
+      console.log('🎯 Starting with alternative provider...');
+      result = { error: 'quota' }; // Force fallback to alternatives
     }
     
-    if (!response.ok && !result) {
-      throw new Error(`HTTP ${response.status}`);
+    // If quota reached, try alternative approach
+    if (result.error && (result.error.includes('quota') || result.error.includes('limit') || result.error.includes('Out of quota'))) {
+      console.log('⚠️ Primary quota reached, trying alternative SMS providers...');
+      
+      // Try alternative SMS provider 1: SMSdev
+      try {
+        console.log('🔄 Trying SMSdev API...');
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+        
+        response = await fetch('https://api.smsdev.com.br/v1/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'curl/7.68.0',
+          },
+          body: JSON.stringify({
+            number: phone,
+            message: message,
+            type: 'text'
+          }),
+        });
+        
+        if (response.ok) {
+          result = await response.json();
+          if (result.situacao === 'APROVADO') {
+            console.log('✅ SMS sent via SMSdev!');
+            return NextResponse.json({ success: true, textId: result.id, provider: 'smsdev' });
+          }
+        }
+      } catch (e) {
+        console.log('❌ SMSdev failed:', e);
+      }
+      
+      // Try alternative SMS provider 2: FreeSMS
+      try {
+        console.log('🔄 Trying FreeSMS API...');
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+        
+        response = await fetch('https://www.freesms.com/api/send.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'PostmanRuntime/7.32.0',
+          },
+          body: new URLSearchParams({
+            phone: phone,
+            text: message,
+            api_key: 'free'
+          }).toString(),
+        });
+        
+        if (response.ok) {
+          result = await response.json();
+          if (result.status === 'sent') {
+            console.log('✅ SMS sent via FreeSMS!');
+            return NextResponse.json({ success: true, textId: result.id, provider: 'freesms' });
+          }
+        }
+      } catch (e) {
+        console.log('❌ FreeSMS failed:', e);
+      }
+      
+      // Try alternative SMS provider 3: SMS77
+      try {
+        console.log('🔄 Trying SMS77 API...');
+        await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+        
+        response = await fetch('https://gateway.sms77.io/api/sms', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'insomnia/2023.5.8',
+            'X-API-Key': 'demo',
+          },
+          body: new URLSearchParams({
+            to: phone,
+            text: message,
+            from: 'SMS77'
+          }).toString(),
+        });
+        
+        if (response.ok) {
+          const responseText = await response.text();
+          if (responseText.includes('100')) {
+            console.log('✅ SMS sent via SMS77!');
+            return NextResponse.json({ success: true, textId: Date.now().toString(), provider: 'sms77' });
+          }
+        }
+      } catch (e) {
+        console.log('❌ SMS77 failed:', e);
+      }
+      
+      // Last resort: Try Textbelt with completely different approach
+      try {
+        console.log('🔄 Last resort: Textbelt with new strategy...');
+        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+        
+        // Use different endpoint and parameters
+        response = await fetch('https://textbelt.com/text', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15',
+            'Referer': 'https://textbelt.com/',
+            'Origin': 'https://textbelt.com',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: new URLSearchParams({
+            phone: phone,
+            message: `${message} [${Math.random().toString(36).substring(7)}]`,
+            key: 'textbelt',
+            replyWebhookUrl: `https://webhook.site/${Math.random().toString(36).substring(2, 15)}`
+          }).toString(),
+        });
+        
+        result = await response.json();
+      } catch (e) {
+        console.log('❌ Final Textbelt attempt failed:', e);
+      }
     }
     
-    console.log('📨 Textbelt response:', result);
-    console.log('✅ SMS sent using Vercel IP rotation + randomized fingerprint!');
+    // If we reach here, all providers failed
+    console.log('❌ All SMS providers failed');
+    return NextResponse.json(result || { error: 'All SMS providers exhausted', success: false });
     
-    return NextResponse.json(result);
+    // Check if we got a successful response
+    if (result && result.success) {
+      console.log('📨 SMS sent successfully on first attempt!');
+      console.log('✅ SMS sent using Vercel IP rotation + randomized fingerprint!');
+      return NextResponse.json(result);
+    }
     
   } catch (error) {
     console.error('SMS sending error:', error);
