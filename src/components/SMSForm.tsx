@@ -64,87 +64,97 @@ export default function SMSForm() {
   const watchedMessage = watch('message');
   const messageLength = watchedMessage?.length || 0;
 
-  // SMS sending function using allorigins CORS proxy
+  // SMS sending function using multiple proxy fallbacks
   const sendSMS = async (data: SMSFormData) => {
     setIsLoading(true);
     
     try {
-      // Build the Textbelt URL with parameters for GET request
-      const textbeltParams = new URLSearchParams({
+      const proxies = [
+        'https://proxy.cors.sh/https://textbelt.com/text',
+        'https://api.codetabs.com/v1/proxy?quest=https://textbelt.com/text',
+        'https://api.allorigins.win/raw?url=https://textbelt.com/text'
+      ];
+      
+      const formData = new URLSearchParams({
         phone: `${data.countryCode}${data.phoneNumber}`,
         message: data.message,
         key: 'textbelt'
       });
-      
-      const textbeltUrl = `https://textbelt.com/text?${textbeltParams.toString()}`;
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(textbeltUrl)}`;
 
-      console.log('Sending SMS via allorigins proxy...');
-      console.log('Target URL:', textbeltUrl);
+      console.log('Trying multiple CORS proxies to preserve your IP...');
       
-      const response = await fetch(proxyUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      for (let i = 0; i < proxies.length; i++) {
+        try {
+          console.log(`Attempt ${i + 1}: Using proxy ${proxies[i]}`);
+          
+          const response = await fetch(proxies[i], {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString(),
+          });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
 
-      const proxyResult = await response.json();
-      console.log('Proxy response:', proxyResult);
-      
-      if (!proxyResult.contents) {
-        throw new Error('No response from proxy');
-      }
-      
-      const result = JSON.parse(proxyResult.contents);
-      console.log('SMS API response:', result);
+          const result = await response.json();
+          console.log('SMS API response:', result);
 
-      if (result && result.success) {
-        setIsSent(true);
-        toast.success('SMS sent successfully!');
-        
-        // Show detailed success info in console
-        console.log('SMS sent successfully:', {
-          quotaRemaining: result.quotaRemaining,
-          textId: result.textId
-        });
-        
-        setTimeout(() => {
-          setIsSent(false);
-          reset();
-        }, 3000);
-      } else {
-        console.error('SMS sending failed:', result);
-        
-        // Check if error is due to limit reached
-        if (result && result.error && (
-          result.error.includes('quota') || 
-          result.error.includes('limit') ||
-          result.error.includes('exceeded') ||
-          result.error.includes('Out of quota')
-        )) {
-          toast.error('Daily SMS limit reached. Try again tomorrow.');
-        } else {
-          // For other types of errors, show the specific error
-          const errorMessage = result?.error || 'Unknown error occurred';
-          toast.error(`SMS failed: ${errorMessage}`);
+          if (result && result.success) {
+            setIsSent(true);
+            toast.success('SMS sent successfully!');
+            
+            // Show detailed success info in console
+            console.log('SMS sent successfully:', {
+              quotaRemaining: result.quotaRemaining,
+              textId: result.textId,
+              proxyUsed: proxies[i]
+            });
+            
+            setTimeout(() => {
+              setIsSent(false);
+              reset();
+            }, 3000);
+            return; // Success, exit the loop
+          } else {
+            console.error('SMS sending failed:', result);
+            
+            // Check if error is due to limit reached
+            if (result && result.error && (
+              result.error.includes('quota') || 
+              result.error.includes('limit') ||
+              result.error.includes('exceeded') ||
+              result.error.includes('Out of quota')
+            )) {
+              toast.error('Daily SMS limit reached. Try again tomorrow.');
+              return; // Don't try other proxies for quota errors
+            } else if (i === proxies.length - 1) {
+              // Last proxy failed
+              const errorMessage = result?.error || 'Unknown error occurred';
+              toast.error(`SMS failed: ${errorMessage}`);
+            }
+          }
+        } catch (error) {
+          console.error(`Proxy ${i + 1} failed:`, error);
+          
+          if (i === proxies.length - 1) {
+            // All proxies failed
+            if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+              toast.error('Network error: Please check your internet connection');
+            } else if (error instanceof Error) {
+              toast.error(`Error: ${error.message}`);
+            } else {
+              toast.error('All proxies failed. Please try again later.');
+            }
+          }
         }
       }
     } catch (error) {
       console.error('SMS sending error:', error);
-      
-      // Provide more specific error messages
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        toast.error('Network error: Please check your internet connection');
-      } else if (error instanceof Error) {
-        toast.error(`Error: ${error.message}`);
-      } else {
-        toast.error('Unexpected error occurred. Please try again.');
-      }
+      toast.error('Unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
