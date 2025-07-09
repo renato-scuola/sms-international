@@ -64,97 +64,72 @@ export default function SMSForm() {
   const watchedMessage = watch('message');
   const messageLength = watchedMessage?.length || 0;
 
-  // SMS sending function using multiple proxy fallbacks
+  // SMS sending function using Vercel serverless function
   const sendSMS = async (data: SMSFormData) => {
     setIsLoading(true);
     
     try {
-      const proxies = [
-        'https://proxy.cors.sh/https://textbelt.com/text',
-        'https://api.codetabs.com/v1/proxy?quest=https://textbelt.com/text',
-        'https://api.allorigins.win/raw?url=https://textbelt.com/text'
-      ];
+      console.log('Sending SMS via Vercel serverless function...');
+      console.log('Each Vercel function call uses different server IPs');
       
-      const formData = new URLSearchParams({
-        phone: `${data.countryCode}${data.phoneNumber}`,
-        message: data.message,
-        key: 'textbelt'
+      const response = await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: `${data.countryCode}${data.phoneNumber}`,
+          message: data.message
+        }),
       });
 
-      console.log('Trying multiple CORS proxies to preserve your IP...');
-      
-      for (let i = 0; i < proxies.length; i++) {
-        try {
-          console.log(`Attempt ${i + 1}: Using proxy ${proxies[i]}`);
-          
-          const response = await fetch(proxies[i], {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-              'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: formData.toString(),
-          });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
 
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
+      const result = await response.json();
+      console.log('SMS API response:', result);
 
-          const result = await response.json();
-          console.log('SMS API response:', result);
-
-          if (result && result.success) {
-            setIsSent(true);
-            toast.success('SMS sent successfully!');
-            
-            // Show detailed success info in console
-            console.log('SMS sent successfully:', {
-              quotaRemaining: result.quotaRemaining,
-              textId: result.textId,
-              proxyUsed: proxies[i]
-            });
-            
-            setTimeout(() => {
-              setIsSent(false);
-              reset();
-            }, 3000);
-            return; // Success, exit the loop
-          } else {
-            console.error('SMS sending failed:', result);
-            
-            // Check if error is due to limit reached
-            if (result && result.error && (
-              result.error.includes('quota') || 
-              result.error.includes('limit') ||
-              result.error.includes('exceeded') ||
-              result.error.includes('Out of quota')
-            )) {
-              toast.error('Daily SMS limit reached. Try again tomorrow.');
-              return; // Don't try other proxies for quota errors
-            } else if (i === proxies.length - 1) {
-              // Last proxy failed
-              const errorMessage = result?.error || 'Unknown error occurred';
-              toast.error(`SMS failed: ${errorMessage}`);
-            }
-          }
-        } catch (error) {
-          console.error(`Proxy ${i + 1} failed:`, error);
-          
-          if (i === proxies.length - 1) {
-            // All proxies failed
-            if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-              toast.error('Network error: Please check your internet connection');
-            } else if (error instanceof Error) {
-              toast.error(`Error: ${error.message}`);
-            } else {
-              toast.error('All proxies failed. Please try again later.');
-            }
-          }
+      if (result && result.success) {
+        setIsSent(true);
+        toast.success('SMS sent successfully!');
+        
+        // Show detailed success info in console
+        console.log('SMS sent successfully:', {
+          quotaRemaining: result.quotaRemaining,
+          textId: result.textId
+        });
+        
+        setTimeout(() => {
+          setIsSent(false);
+          reset();
+        }, 3000);
+      } else {
+        console.error('SMS sending failed:', result);
+        
+        // Check if error is due to limit reached
+        if (result && result.error && (
+          result.error.includes('quota') || 
+          result.error.includes('limit') ||
+          result.error.includes('exceeded') ||
+          result.error.includes('Out of quota')
+        )) {
+          toast.error('Daily SMS limit reached. Try again tomorrow.');
+        } else {
+          // For other types of errors, show the specific error
+          const errorMessage = result?.error || 'Unknown error occurred';
+          toast.error(`SMS failed: ${errorMessage}`);
         }
       }
     } catch (error) {
       console.error('SMS sending error:', error);
-      toast.error('Unexpected error occurred. Please try again.');
+      
+      if (error instanceof Error) {
+        toast.error(`Error: ${error.message}`);
+      } else {
+        toast.error('Unexpected error occurred. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/send-sms.js": {
+      "maxDuration": 10
+    }
+  },
+  "buildCommand": "npm run build",
+  "outputDirectory": "out",
+  "devCommand": "npm run dev"
+}
