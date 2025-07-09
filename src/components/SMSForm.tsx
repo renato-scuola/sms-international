@@ -92,8 +92,8 @@ export default function SMSForm() {
     setIsLoading(true);
     
     try {
-      // Uses free TextBelt service (limited but working)
-      const response = await fetch('/api/send-sms', {
+      // Uses free TextBelt service (limited but working) - direct call
+      const response = await fetch('https://textbelt.com/text', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -101,6 +101,7 @@ export default function SMSForm() {
         body: JSON.stringify({
           phone: `${data.countryCode}${data.phoneNumber}`,
           message: data.message,
+          key: 'textbelt', // Free key with 1 SMS/day limit per IP
         }),
       });
 
