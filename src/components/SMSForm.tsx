@@ -43,6 +43,8 @@ export default function SMSForm() {
   // Controlla se è possibile inviare SMS al caricamento
   useEffect(() => {
     // No limit checking needed anymore
+    // This is a test comment to trigger GitHub Actions workflow
+    console.log('SMS Form component mounted successfully');
   }, []);
 
   const {
