@@ -28,9 +28,6 @@ type SMSFormData = z.infer<typeof smsSchema>;
 export default function SMSForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
-  const [canSendSMS, setCanSendSMS] = useState(true);
-  const [isCheckingLimit, setIsCheckingLimit] = useState(true);
-  const [limitReached, setLimitReached] = useState(false);
   const phoneNumberRef = useRef<HTMLInputElement>(null);
 
   // Mouse tracking per hover effects
@@ -45,27 +42,7 @@ export default function SMSForm() {
 
   // Controlla se è possibile inviare SMS al caricamento
   useEffect(() => {
-    const checkSMSLimit = () => {
-      const today = new Date().toDateString();
-      const lastSMSDate = localStorage.getItem('lastSMSDate');
-      const smsUsedToday = localStorage.getItem('smsUsedToday');
-      
-      // If user has already sent an SMS today, disable button
-      if (lastSMSDate === today && smsUsedToday === 'true') {
-        setCanSendSMS(false);
-        setLimitReached(true);
-        console.log('SMS already used today:', today);
-      } else {
-        setCanSendSMS(true);
-        setLimitReached(false);
-        console.log('SMS available for today:', today);
-      }
-      
-      setIsCheckingLimit(false);
-    };
-
-    // Simulate a small delay for animation
-    setTimeout(checkSMSLimit, 1000);
+    // No limit checking needed anymore
   }, []);
 
   const {
@@ -87,65 +64,77 @@ export default function SMSForm() {
   const watchedMessage = watch('message');
   const messageLength = watchedMessage?.length || 0;
 
-  // SMS sending function using a free service
+  // SMS sending function using allorigins CORS proxy
   const sendSMS = async (data: SMSFormData) => {
     setIsLoading(true);
     
     try {
-      // Uses free TextBelt service (limited but working) - direct call
-      const response = await fetch('https://textbelt.com/text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          phone: `${data.countryCode}${data.phoneNumber}`,
-          message: data.message,
-          key: 'textbelt', // Free key with 1 SMS/day limit per IP
-        }),
+      // Use only allorigins.win as it's the only one that works reliably
+      const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://textbelt.com/text');
+      
+      const formData = new URLSearchParams({
+        phone: `${data.countryCode}${data.phoneNumber}`,
+        message: data.message,
+        key: 'textbelt'
       });
 
-      const result = await response.json();
+      console.log('Sending SMS via allorigins proxy...');
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
 
-      if (result.success) {
-        // Save in localStorage that user has used SMS today
-        const today = new Date().toDateString();
-        localStorage.setItem('lastSMSDate', today);
-        localStorage.setItem('smsUsedToday', 'true');
-        
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('SMS API response:', result);
+
+      if (result && result.success) {
         setIsSent(true);
-        setCanSendSMS(false); // Disable immediately after sending
-        setLimitReached(true);
         toast.success('SMS sent successfully!');
+        
+        // Show detailed success info in console
+        console.log('SMS sent successfully:', {
+          quotaRemaining: result.quotaRemaining,
+          textId: result.textId
+        });
+        
         setTimeout(() => {
           setIsSent(false);
           reset();
         }, 3000);
       } else {
+        console.error('SMS sending failed:', result);
+        
         // Check if error is due to limit reached
-        if (result.error && (
+        if (result && result.error && (
           result.error.includes('quota') || 
           result.error.includes('limit') ||
-          result.error.includes('exceeded')
+          result.error.includes('exceeded') ||
+          result.error.includes('Out of quota')
         )) {
-          // Also save in localStorage if server says limit is reached
-          const today = new Date().toDateString();
-          localStorage.setItem('lastSMSDate', today);
-          localStorage.setItem('smsUsedToday', 'true');
-          
-          setCanSendSMS(false);
-          setLimitReached(true);
-          // Don't show toast error, will be shown on button
+          toast.error('Daily SMS limit reached. Try again tomorrow.');
         } else {
-          // Only for other types of errors, show toast
-          toast.error(result.error || 'Error sending SMS');
+          // For other types of errors, show the specific error
+          const errorMessage = result?.error || 'Unknown error occurred';
+          toast.error(`SMS failed: ${errorMessage}`);
         }
       }
     } catch (error) {
       console.error('SMS sending error:', error);
-      // Don't show toast for limit errors, only for network errors
-      if (!limitReached) {
-        toast.error('Connection error');
+      
+      // Provide more specific error messages
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        toast.error('Network error: Please check your internet connection');
+      } else if (error instanceof Error) {
+        toast.error(`Error: ${error.message}`);
+      } else {
+        toast.error('Unexpected error occurred. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -375,35 +364,12 @@ export default function SMSForm() {
           >
             <button
               type="submit"
-              disabled={isLoading || isSent || !canSendSMS || isCheckingLimit}
+              disabled={isLoading || isSent}
               onMouseMove={(e) => updateMousePosition(e, e.currentTarget)}
-              className={`button-follower w-full relative overflow-hidden bg-gradient-to-r from-white to-gray-200 text-black font-semibold py-4 px-6 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-white/25 focus:outline-none focus:ring-2 focus:ring-white/50 disabled:cursor-not-allowed group ${
-                !canSendSMS || limitReached ? 'opacity-30 blur-[0.5px]' : 'disabled:opacity-50'
-              }`}
+              className={`button-follower w-full relative overflow-hidden bg-gradient-to-r from-white to-gray-200 text-black font-semibold py-4 px-6 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-white/25 focus:outline-none focus:ring-2 focus:ring-white/50 disabled:cursor-not-allowed group disabled:opacity-50`}
             >
               <AnimatePresence mode="wait">
-                {isCheckingLimit ? (
-                  <motion.div
-                    key="checking"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center justify-center"
-                  >
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Checking availability...
-                  </motion.div>
-                ) : limitReached ? (
-                  <motion.div
-                    key="limit-reached"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex items-center justify-center text-sm"
-                  >
-                    Limit reached, try again tomorrow
-                  </motion.div>
-                ) : isLoading ? (
+                {isLoading ? (
                   <motion.div
                     key="loading"
                     initial={{ opacity: 0 }}
@@ -454,29 +420,8 @@ export default function SMSForm() {
           className="mt-6 text-center"
         >
           <p className="text-xs text-gray-500">
-            {isCheckingLimit 
-              ? 'Checking availability...' 
-              : canSendSMS 
-                ? 'Free service with daily limit' 
-                : 'Daily limit reached - try again tomorrow'
-            }
+            Free service with daily limit
           </p>
-          
-          {/* Reset button for development */}
-          {process.env.NODE_ENV === 'development' && limitReached && (
-            <button
-              onClick={() => {
-                localStorage.removeItem('lastSMSDate');
-                localStorage.removeItem('smsUsedToday');
-                setCanSendSMS(true);
-                setLimitReached(false);
-                toast.success('Limit reset for testing');
-              }}
-              className="mt-2 text-xs text-gray-400 hover:text-white underline"
-            >
-              Reset limit (dev only)
-            </button>
-          )}
         </motion.div>
       </motion.div>
     </>

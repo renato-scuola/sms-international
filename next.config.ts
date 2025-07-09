@@ -1,12 +1,14 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === 'production';
+
 const nextConfig: NextConfig = {
   output: 'export',
   trailingSlash: true,
   skipTrailingSlashRedirect: true,
   distDir: 'out',
-  basePath: '/sms-international',
-  assetPrefix: '/sms-international',
+  basePath: isProd ? '/sms-international' : '',
+  assetPrefix: isProd ? '/sms-international' : '',
   images: {
     unoptimized: true
   }
