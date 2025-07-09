@@ -37,6 +37,8 @@ jobs:
 
       - name: Build Next.js app
         run: npm run build
+        env:
+          NEXT_PUBLIC_BASE_PATH: /sms-international
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
