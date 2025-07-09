@@ -47,9 +47,20 @@ export default function SMSForm() {
     console.log('🌐 User Agent:', navigator.userAgent);
     console.log('📍 Location:', window.location.href);
     console.log('🎯 API Endpoint:', '/api/send-sms');
-    console.log('⚡ Aggressive device spoofing enabled for Textbelt bypass');
-    console.log('🔄 IP + Device fingerprint rotation via Vercel edge network');
+    console.log('⚡ Real user IP spoofing enabled for Textbelt bypass');
+    console.log('🔄 Each user IP is unique + Device fingerprint rotation via Vercel');
     console.log('✅ SMS Form ready for unlimited international messaging');
+    
+    // Try to get user's IP for logging (optional)
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => {
+        console.log('🌍 User public IP detected:', data.ip);
+      })
+      .catch(() => {
+        console.log('🌍 User IP detection: Will be determined server-side');
+      });
+    
     console.groupEnd();
   }, []);
 
@@ -92,14 +103,14 @@ export default function SMSForm() {
     setIsLoading(true);
     
     try {
-      console.log('⚡ Step 1: Preparing API request with aggressive device spoofing');
-      console.log('🌐 Each request uses completely randomized device fingerprint + Vercel IP rotation');
+      console.log('⚡ Step 1: Preparing API request with user IP spoofing');
+      console.log('🌐 Each user has unique real IP + randomized device fingerprint');
       console.log('📊 Request payload:', {
         phone: `${data.countryCode}${data.phoneNumber}`,
         message: data.message
       });
       
-      console.log('📡 Step 2: Sending spoofed request to Textbelt via Vercel...');
+      console.log('📡 Step 2: Sending request with user real IP to Textbelt via Vercel...');
       const startTime = performance.now();
       
       const response = await fetch('/api/send-sms', {
@@ -132,15 +143,15 @@ export default function SMSForm() {
       if (result && result.success) {
         console.log('🎉 Step 5: SMS SUCCESSFULLY SENT!');
         console.table({
-          'Provider Used': 'Textbelt (spoofed)',
+          'Provider Used': 'Textbelt (real IP spoofed)',
           'Text ID': result.textId || 'N/A',
           'Quota Remaining': result.quotaRemaining || 'Bypassed',
           'Request Time': `${requestTime}ms`,
-          'Spoofing': 'Device + IP randomized'
+          'Spoofing': 'Real user IP + randomized device'
         });
         
         setIsSent(true);
-        toast.success('SMS sent via spoofed Textbelt!');
+        toast.success('SMS sent via real IP spoofing!');
         
         setTimeout(() => {
           setIsSent(false);
@@ -491,7 +502,7 @@ export default function SMSForm() {
           className="mt-6 text-center"
         >
           <p className="text-xs text-gray-500">
-            Unlimited via device fingerprint spoofing
+            Unlimited via real user IP spoofing
           </p>
         </motion.div>
       </motion.div>

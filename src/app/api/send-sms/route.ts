@@ -13,10 +13,28 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('✅ Request validated:', { phone: phone.substring(0, 5) + '***', messageLength: message.length });
-    
+
     console.log('🚀 Sending SMS from Vercel serverless function...');
     console.log('📍 Vercel Region:', process.env.VERCEL_REGION || 'development');
-    console.log('🌐 Function will use automatic IP rotation from Vercel edge network');
+    
+    // Get user's real IP address from various headers
+    const userIP = 
+      request.headers.get('x-forwarded-for')?.split(',')[0] ||
+      request.headers.get('x-real-ip') ||
+      request.headers.get('cf-connecting-ip') ||
+      request.headers.get('x-client-ip') ||
+      request.headers.get('x-forwarded') ||
+      request.headers.get('forwarded-for') ||
+      request.headers.get('forwarded') ||
+      '127.0.0.1'; // fallback
+    
+    console.log('🌐 User real IP detected:', userIP);
+    console.log('📊 All request headers for IP detection:', {
+      'x-forwarded-for': request.headers.get('x-forwarded-for'),
+      'x-real-ip': request.headers.get('x-real-ip'),
+      'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
+      'x-client-ip': request.headers.get('x-client-ip')
+    });
     
     // Generate completely random device fingerprint to avoid detection
     const randomId = Math.random().toString(36).substring(2, 15);
@@ -36,8 +54,8 @@ export async function POST(request: NextRequest) {
     
     const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
     
-    // Generate random IP to spoof (IPv4)
-    const randomIP = `${Math.floor(Math.random() * 223) + 1}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
+    // Use user's real IP for spoofing (more effective than random IPs)
+    console.log('🎯 Using user real IP for spoofing:', userIP);
     
     // Random screen resolutions
     const resolutions = ['1920x1080', '1366x768', '1536x864', '1440x900', '1280x720', '375x667', '414x896', '390x844'];
@@ -67,7 +85,7 @@ export async function POST(request: NextRequest) {
     
     console.log('🎭 Spoofing device fingerprint:', {
       userAgent: randomUserAgent.substring(0, 50) + '...',
-      fakeIP: randomIP,
+      realUserIP: userIP,
       resolution: randomResolution,
       sessionId: sessionId,
       referer: randomReferer || 'direct'
@@ -90,8 +108,8 @@ export async function POST(request: NextRequest) {
           'Cache-Control': 'no-cache',
           'Origin': 'https://textbelt.com',
           'Referer': randomReferer || 'https://textbelt.com/',
-          'X-Forwarded-For': randomIP,
-          'X-Real-IP': randomIP,
+          'X-Forwarded-For': userIP,
+          'X-Real-IP': userIP,
           'X-Session-ID': sessionId,
           'X-Request-ID': randomId,
         },
