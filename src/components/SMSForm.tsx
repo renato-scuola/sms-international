@@ -69,29 +69,24 @@ export default function SMSForm() {
     setIsLoading(true);
     
     try {
-      // Use allorigins.win (not raw) to preserve POST parameters better
-      const proxyUrl = 'https://api.allorigins.win/get';
-      
-      const formData = new URLSearchParams({
+      // Build the Textbelt URL with parameters for GET request
+      const textbeltParams = new URLSearchParams({
         phone: `${data.countryCode}${data.phoneNumber}`,
         message: data.message,
         key: 'textbelt'
       });
+      
+      const textbeltUrl = `https://textbelt.com/text?${textbeltParams.toString()}`;
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(textbeltUrl)}`;
 
       console.log('Sending SMS via allorigins proxy...');
+      console.log('Target URL:', textbeltUrl);
+      
       const response = await fetch(proxyUrl, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          url: 'https://textbelt.com/text',
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-          },
-          body: formData.toString()
-        }),
       });
 
       if (!response.ok) {
