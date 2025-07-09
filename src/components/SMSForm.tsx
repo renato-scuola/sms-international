@@ -1,0 +1,483 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, MessageSquare, Phone, Loader2, Check } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
+
+// Validation schema
+const smsSchema = z.object({
+  countryCode: z.string()
+    .min(1, 'Country code required')
+    .max(5, 'Country code too long')
+    .regex(/^\+\d{1,4}$/, 'Invalid country code (e.g. +39)'),
+  phoneNumber: z.string()
+    .min(6, 'Number too short')
+    .max(15, 'Number too long')
+    .regex(/^\d+$/, 'Only numbers allowed'),
+  message: z.string()
+    .min(1, 'Message required')
+    .max(160, 'Message too long (max 160 characters)'),
+});
+
+type SMSFormData = z.infer<typeof smsSchema>;
+
+export default function SMSForm() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSent, setIsSent] = useState(false);
+  const [canSendSMS, setCanSendSMS] = useState(true);
+  const [isCheckingLimit, setIsCheckingLimit] = useState(true);
+  const [limitReached, setLimitReached] = useState(false);
+  const phoneNumberRef = useRef<HTMLInputElement>(null);
+
+  // Mouse tracking per hover effects
+  const updateMousePosition = (e: React.MouseEvent, element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    element.style.setProperty('--mouse-x', `${x}%`);
+    element.style.setProperty('--mouse-y', `${y}%`);
+  };
+
+  // Controlla se è possibile inviare SMS al caricamento
+  useEffect(() => {
+    const checkSMSLimit = () => {
+      const today = new Date().toDateString();
+      const lastSMSDate = localStorage.getItem('lastSMSDate');
+      const smsUsedToday = localStorage.getItem('smsUsedToday');
+      
+      // If user has already sent an SMS today, disable button
+      if (lastSMSDate === today && smsUsedToday === 'true') {
+        setCanSendSMS(false);
+        setLimitReached(true);
+        console.log('SMS already used today:', today);
+      } else {
+        setCanSendSMS(true);
+        setLimitReached(false);
+        console.log('SMS available for today:', today);
+      }
+      
+      setIsCheckingLimit(false);
+    };
+
+    // Simulate a small delay for animation
+    setTimeout(checkSMSLimit, 1000);
+  }, []);
+
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    setValue,
+    formState: { errors }
+  } = useForm<SMSFormData>({
+    resolver: zodResolver(smsSchema),
+    defaultValues: {
+      countryCode: '+39',
+      phoneNumber: '',
+      message: ''
+    }
+  });
+
+  const watchedMessage = watch('message');
+  const messageLength = watchedMessage?.length || 0;
+
+  // SMS sending function using a free service
+  const sendSMS = async (data: SMSFormData) => {
+    setIsLoading(true);
+    
+    try {
+      // Uses free TextBelt service (limited but working)
+      const response = await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: `${data.countryCode}${data.phoneNumber}`,
+          message: data.message,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Save in localStorage that user has used SMS today
+        const today = new Date().toDateString();
+        localStorage.setItem('lastSMSDate', today);
+        localStorage.setItem('smsUsedToday', 'true');
+        
+        setIsSent(true);
+        setCanSendSMS(false); // Disable immediately after sending
+        setLimitReached(true);
+        toast.success('SMS sent successfully!');
+        setTimeout(() => {
+          setIsSent(false);
+          reset();
+        }, 3000);
+      } else {
+        // Check if error is due to limit reached
+        if (result.error && (
+          result.error.includes('quota') || 
+          result.error.includes('limit') ||
+          result.error.includes('exceeded')
+        )) {
+          // Also save in localStorage if server says limit is reached
+          const today = new Date().toDateString();
+          localStorage.setItem('lastSMSDate', today);
+          localStorage.setItem('smsUsedToday', 'true');
+          
+          setCanSendSMS(false);
+          setLimitReached(true);
+          // Don't show toast error, will be shown on button
+        } else {
+          // Only for other types of errors, show toast
+          toast.error(result.error || 'Error sending SMS');
+        }
+      }
+    } catch (error) {
+      console.error('SMS sending error:', error);
+      // Don't show toast for limit errors, only for network errors
+      if (!limitReached) {
+        toast.error('Connection error');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCountryCodeComplete = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      phoneNumberRef.current?.focus();
+    }
+  };
+
+  const handleCountryCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    
+    // Automatically add + if not present
+    if (value && !value.startsWith('+')) {
+      value = '+' + value;
+    }
+    
+    // Limit to numbers after +
+    value = value.replace(/[^\+\d]/g, '');
+    
+    setValue('countryCode', value);
+  };
+
+  const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only numbers allowed
+    const value = e.target.value.replace(/\D/g, '');
+    setValue('phoneNumber', value);
+  };
+
+  return (
+    <>
+      <Toaster 
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'rgba(0, 0, 0, 0.9)',
+            color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            backdropFilter: 'blur(16px)',
+          },
+        }}
+      />
+      
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ 
+          duration: 1.2,
+          ease: [0.25, 0.46, 0.45, 0.94],
+          type: "spring",
+          stiffness: 80,
+          damping: 20
+        }}
+        className="glass-dark rounded-3xl p-8 shadow-2xl border border-white/20"
+      >
+        {/* Header */}
+        <motion.div 
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ 
+            delay: 0.3,
+            duration: 1.0,
+            ease: [0.25, 0.46, 0.45, 0.94]
+          }}
+        >
+          <motion.div 
+            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-white to-gray-300 rounded-2xl mb-4"
+            initial={{ 
+              opacity: 0,
+              scale: 0.8
+            }}
+            animate={{ 
+              opacity: 1,
+              scale: 1
+            }}
+            transition={{ 
+              delay: 0.5,
+              duration: 0.8,
+              ease: [0.25, 0.46, 0.45, 0.94]
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{
+                delay: 0.8,
+                duration: 0.5,
+                ease: "easeOut"
+              }}
+            >
+              <MessageSquare className="w-8 h-8 text-black" />
+            </motion.div>
+          </motion.div>
+          <motion.h1 
+            className="text-2xl font-semibold text-white mb-2"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              delay: 0.7,
+              duration: 0.8,
+              ease: "easeOut"
+            }}
+          >
+            SMS International
+          </motion.h1>
+          <motion.p 
+            className="text-gray-400 text-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ 
+              delay: 0.9,
+              duration: 0.6
+            }}
+          >
+            Send messages worldwide
+          </motion.p>
+        </motion.div>
+
+        <form onSubmit={handleSubmit(sendSMS)} className="space-y-6">
+          {/* Phone number */}
+          <motion.div
+            initial={{ opacity: 0, x: -40, filter: "blur(10px)" }}
+            animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+            transition={{ 
+              delay: 0.6,
+              duration: 1.1,
+              ease: [0.25, 0.46, 0.45, 0.94]
+            }}
+          >
+            <label className="block text-sm font-medium text-gray-300 mb-3">
+              <Phone className="w-4 h-4 inline mr-2" />
+              Phone number
+            </label>
+            <div className="flex gap-3">
+              {/* Country code */}
+              <div className="flex-shrink-0">
+                <input
+                  {...register('countryCode', {
+                    onChange: handleCountryCodeChange
+                  })}
+                  type="text"
+                  placeholder="+39"
+                  onKeyDown={handleCountryCodeComplete}
+                  onMouseMove={(e) => updateMousePosition(e, e.currentTarget)}
+                  className={`mouse-follower w-20 px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/30 transition-all backdrop-blur-sm ${
+                    errors.countryCode ? 'border-red-400/50' : 'border-white/20'
+                  }`}
+                />
+                {errors.countryCode && (
+                  <p className="text-red-400 text-xs mt-1">{errors.countryCode.message}</p>
+                )}
+              </div>
+              
+              {/* Number */}
+              <div className="flex-1">
+                <input
+                  {...register('phoneNumber', {
+                    onChange: handlePhoneNumberChange
+                  })}
+                  ref={phoneNumberRef}
+                  type="tel"
+                  placeholder="1234567890"
+                  onMouseMove={(e) => updateMousePosition(e, e.currentTarget)}
+                  className={`mouse-follower w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/30 transition-all backdrop-blur-sm ${
+                    errors.phoneNumber ? 'border-red-400/50' : 'border-white/20'
+                  }`}
+                />
+                {errors.phoneNumber && (
+                  <p className="text-red-400 text-xs mt-1">{errors.phoneNumber.message}</p>
+                )}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Message */}
+          <motion.div
+            initial={{ opacity: 0, x: 40, filter: "blur(10px)" }}
+            animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+            transition={{ 
+              delay: 0.9,
+              duration: 1.1,
+              ease: [0.25, 0.46, 0.45, 0.94]
+            }}
+          >
+            <label className="block text-sm font-medium text-gray-300 mb-3">
+              <MessageSquare className="w-4 h-4 inline mr-2" />
+              Message
+            </label>
+            <div className="relative">
+              <textarea
+                {...register('message')}
+                rows={4}
+                placeholder="Write your message here..."
+                onMouseMove={(e) => updateMousePosition(e, e.currentTarget)}
+                className={`mouse-follower w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/30 transition-all backdrop-blur-sm resize-none ${
+                  errors.message ? 'border-red-400/50' : 'border-white/20'
+                }`}
+              />
+              <div className="absolute bottom-3 right-3 text-xs text-gray-400">
+                <span className={messageLength > 160 ? 'text-red-400' : ''}>
+                  {messageLength}/160
+                </span>
+              </div>
+            </div>
+            {errors.message && (
+              <p className="text-red-400 text-xs mt-1">{errors.message.message}</p>
+            )}
+          </motion.div>
+
+          {/* Send button */}
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ 
+              delay: 1.2,
+              duration: 1.0,
+              ease: [0.25, 0.46, 0.45, 0.94],
+              type: "spring",
+              stiffness: 100,
+              damping: 15
+            }}
+          >
+            <button
+              type="submit"
+              disabled={isLoading || isSent || !canSendSMS || isCheckingLimit}
+              onMouseMove={(e) => updateMousePosition(e, e.currentTarget)}
+              className={`button-follower w-full relative overflow-hidden bg-gradient-to-r from-white to-gray-200 text-black font-semibold py-4 px-6 rounded-xl transition-all duration-300 hover:shadow-lg hover:shadow-white/25 focus:outline-none focus:ring-2 focus:ring-white/50 disabled:cursor-not-allowed group ${
+                !canSendSMS || limitReached ? 'opacity-30 blur-[0.5px]' : 'disabled:opacity-50'
+              }`}
+            >
+              <AnimatePresence mode="wait">
+                {isCheckingLimit ? (
+                  <motion.div
+                    key="checking"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-center"
+                  >
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Checking availability...
+                  </motion.div>
+                ) : limitReached ? (
+                  <motion.div
+                    key="limit-reached"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-center text-sm"
+                  >
+                    Limit reached, try again tomorrow
+                  </motion.div>
+                ) : isLoading ? (
+                  <motion.div
+                    key="loading"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-center"
+                  >
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Sending...
+                  </motion.div>
+                ) : isSent ? (
+                  <motion.div
+                    key="sent"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-center"
+                  >
+                    <Check className="w-5 h-5 mr-2" />
+                    Sent!
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="send"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="flex items-center justify-center"
+                  >
+                    <Send className="w-5 h-5 mr-2 group-hover:translate-x-1 transition-transform" />
+                    Send SMS
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </button>
+          </motion.div>
+        </form>
+
+        {/* Footer info */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ 
+            delay: 1.5,
+            duration: 0.8,
+            ease: "easeOut"
+          }}
+          className="mt-6 text-center"
+        >
+          <p className="text-xs text-gray-500">
+            {isCheckingLimit 
+              ? 'Checking availability...' 
+              : canSendSMS 
+                ? 'Free service with daily limit' 
+                : 'Daily limit reached - try again tomorrow'
+            }
+          </p>
+          
+          {/* Reset button for development */}
+          {process.env.NODE_ENV === 'development' && limitReached && (
+            <button
+              onClick={() => {
+                localStorage.removeItem('lastSMSDate');
+                localStorage.removeItem('smsUsedToday');
+                setCanSendSMS(true);
+                setLimitReached(false);
+                toast.success('Limit reset for testing');
+              }}
+              className="mt-2 text-xs text-gray-400 hover:text-white underline"
+            >
+              Reset limit (dev only)
+            </button>
+          )}
+        </motion.div>
+      </motion.div>
+    </>
+  );
+}

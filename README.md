@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📱 SMS Internazionale
 
-## Getting Started
+Un'applicazione web moderna per l'invio di SMS internazionali con design liquid glass ispirato a iOS.
 
-First, run the development server:
+## ✨ Caratteristiche
 
+- 🎨 **Design Liquid Glass** - Interfaccia moderna con effetti glassmorphism
+- 🌙 **Tema Scuro** - Design elegante per l'uso notturno
+- 📱 **Responsive** - Ottimizzato per tutti i dispositivi
+- 🌍 **SMS Internazionali** - Supporto per prefissi internazionali
+- ⚡ **Real-time** - Validazione e feedback istantanei
+- 💰 **Gratuito** - Servizio SMS gratuito (con limitazioni)
+
+## 🚀 Tecnologie
+
+- **Next.js 14+** - Framework React per produzione
+- **TypeScript** - Type safety e migliore DX
+- **Tailwind CSS** - Styling utility-first
+- **Framer Motion** - Animazioni fluide
+- **React Hook Form** - Gestione form performante
+- **Zod** - Validazione schema
+- **Lucide React** - Icone moderne
+
+## 🛠️ Installazione
+
+1. Clona il repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd sms-online
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Installa le dipendenze:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Avvia il server di sviluppo:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Apri [http://localhost:3000](http://localhost:3000) nel browser
 
-## Learn More
+## 📋 Utilizzo
 
-To learn more about Next.js, take a look at the following resources:
+1. **Inserisci il prefisso** - Seleziona il prefisso internazionale (es. +39 per Italia)
+2. **Numero di telefono** - Inserisci il numero senza prefisso
+3. **Messaggio** - Scrivi il tuo messaggio (max 160 caratteri)
+4. **Invia** - Clicca il pulsante per inviare l'SMS
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔧 API
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Il progetto utilizza l'API gratuita di TextBelt per l'invio degli SMS:
+- **Limite**: 1 SMS gratuito al giorno per IP
+- **Endpoint**: `/api/send-sms`
+- **Metodo**: POST
 
-## Deploy on Vercel
+### Esempio di richiesta:
+```json
+{
+  "phone": "+393331234567",
+  "message": "Ciao! Questo è un messaggio di test."
+}
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🎯 Struttura del Progetto
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+├── app/
+│   ├── api/send-sms/     # API endpoint per SMS
+│   ├── globals.css       # Stili globali
+│   ├── layout.tsx        # Layout principale
+│   └── page.tsx          # Homepage
+├── components/
+│   └── SMSForm.tsx       # Componente form SMS
+```
+
+## ⚠️ Limitazioni
+
+- **Servizio Gratuito**: 1 SMS al giorno per IP
+- **Solo Numeri Reali**: Il servizio funziona solo con numeri di telefono validi
+- **Rate Limiting**: Potrebbero esserci limitazioni aggiuntive dal provider
+
+## 🚀 Deploy
+
+Il progetto è pronto per il deploy su:
+- **Vercel** (raccomandato)
+- **Netlify**
+- **Railway**
+- **Altri provider Next.js**
+
+## 📝 License
+
+MIT License - vedi il file LICENSE per i dettagli.
