@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  console.log('🔥 SMS API v5.1 - Simplified Textbelt Strategy');
-  
   try {
-    const body = await request.json();
-    const { phone, message } = body;
+    const { phone, message } = await request.json();
     
     if (!phone || !message) {
-      console.log('❌ Missing phone or message');
       return NextResponse.json({ error: 'Phone and message required' }, { status: 400 });
     }
     
@@ -17,36 +13,18 @@ export async function POST(request: NextRequest) {
       messageLength: message.length 
     });
 
-    // Get user IP
-    const userIP = request.headers.get('x-forwarded-for')?.split(',')[0] || 
-                   request.headers.get('cf-connecting-ip') || 
-                   request.headers.get('x-real-ip') || 
-                   '127.0.0.1';
-    
-    console.log('🌐 User IP:', userIP);
-    
-    // Generate variant IP
-    const generateVariantIP = (baseIP: string, variant: number): string => {
-      const parts = baseIP.split('.');
-      if (parts.length === 4) {
-        parts[3] = String((parseInt(parts[3]) + variant) % 255);
-        return parts.join('.');
-      }
-      return baseIP;
-    };
-    
-    // Try different strategies
+    // Simple proxy to Textbelt - try multiple strategies
     const strategies = [
-      { key: 'textbelt', ip: userIP, name: 'primary' },
-      { key: '', ip: generateVariantIP(userIP, 1), name: 'no-key' },
-      { key: 'demo', ip: generateVariantIP(userIP, 2), name: 'demo' },
-      { key: 'test', ip: generateVariantIP(userIP, 3), name: 'test' },
-      { key: 'free', ip: generateVariantIP(userIP, 4), name: 'free' }
+      { key: 'textbelt', name: 'primary' },
+      { key: '', name: 'no-key' },
+      { key: 'demo', name: 'demo' },
+      { key: 'test', name: 'test' },
+      { key: 'free', name: 'free' }
     ];
     
     for (const strategy of strategies) {
       try {
-        console.log(`📡 Trying: ${strategy.name} with IP ${strategy.ip}`);
+        console.log(`📡 Trying: ${strategy.name}`);
         
         const formData = new URLSearchParams({
           phone: phone,
@@ -60,13 +38,11 @@ export async function POST(request: NextRequest) {
             'Content-Type': 'application/x-www-form-urlencoded',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json',
-            'X-Forwarded-For': strategy.ip,
-            'X-Real-IP': strategy.ip,
+            'Origin': 'https://textbelt.com',
+            'Referer': 'https://textbelt.com/',
           },
           body: formData.toString(),
         });
-        
-        console.log(`📨 ${strategy.name} Response:`, response.status);
         
         if (!response.ok) {
           console.warn(`⚠️ ${strategy.name} HTTP error:`, response.status);
@@ -78,15 +54,7 @@ export async function POST(request: NextRequest) {
         
         if (result && result.success) {
           console.log(`✅ SMS sent via ${strategy.name}!`);
-          
-          return NextResponse.json({
-            success: true,
-            textId: result.textId,
-            quotaRemaining: result.quotaRemaining,
-            method: `textbelt-${strategy.name}`,
-            strategy: strategy.key || 'no-key',
-            ipUsed: strategy.ip.substring(0, 8) + '***'
-          });
+          return NextResponse.json(result);
         } else if (result?.error?.includes('quota') || result?.error?.includes('limit')) {
           console.warn(`📊 ${strategy.name} quota exhausted, trying next...`);
           continue;
@@ -103,22 +71,19 @@ export async function POST(request: NextRequest) {
     
     // If all strategies failed
     return NextResponse.json({ 
-      error: 'All Textbelt strategies exhausted',
+      error: 'All SMS strategies exhausted',
       success: false,
-      tried: strategies.map(s => s.name),
       suggestion: 'Try again later or consider getting a paid Textbelt API key'
     }, { status: 500 });
     
   } catch (error) {
     console.error('💀 API Error:', error);
-    return NextResponse.json(
-      { 
-        error: 'SMS sending failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, 
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ message: 'SMS API is running' });
 }
 
 export async function OPTIONS() {
@@ -126,7 +91,7 @@ export async function OPTIONS() {
     status: 200,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
