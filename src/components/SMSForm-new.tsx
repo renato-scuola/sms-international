@@ -30,9 +30,29 @@ export default function SMSForm() {
   const [isSent, setIsSent] = useState(false);
   const phoneNumberRef = useRef<HTMLInputElement>(null);
 
+  // Mouse tracking for hover effects
+  const updateMousePosition = (e: React.MouseEvent, element: HTMLElement) => {
+    const rect = element.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    
+    element.style.setProperty('--mouse-x', `${x}%`);
+    element.style.setProperty('--mouse-y', `${y}%`);
+  };
+
   // Form initialization
   useEffect(() => {
     console.log('✅ SMS Form initialized');
+    
+    // Try to get user's IP for logging (optional)
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => {
+        console.log('🌍 User IP:', data.ip);
+      })
+      .catch(() => {
+        console.log('🌍 IP detection failed');
+      });
   }, []);
 
   const {
@@ -64,7 +84,7 @@ export default function SMSForm() {
     setIsLoading(true);
     
     try {
-      const response = await fetch('/api/sms', {
+      const response = await fetch('/api/send-sms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -107,6 +127,12 @@ export default function SMSForm() {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleCountryCodeComplete = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      phoneNumberRef.current?.focus();
     }
   };
 
@@ -180,6 +206,7 @@ export default function SMSForm() {
                 <input
                   {...register('countryCode')}
                   onChange={handleCountryCodeChange}
+                  onKeyDown={handleCountryCodeComplete}
                   placeholder="+39"
                   className="w-full px-3 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-gray-400 text-center font-mono text-sm focus:border-white/40 focus:bg-white/15 transition-all duration-200"
                 />
@@ -237,7 +264,14 @@ export default function SMSForm() {
             className="w-full relative overflow-hidden bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/40 rounded-xl px-6 py-4 text-white font-medium transition-all duration-300 group disabled:opacity-50 disabled:cursor-not-allowed"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onMouseMove={(e) => updateMousePosition(e, e.currentTarget)}
           >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" 
+                 style={{
+                   background: `radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.1), transparent 50%)`
+                 }} 
+            />
+            
             <div className="relative flex items-center justify-center">
               <AnimatePresence mode="wait">
                 {isLoading ? (

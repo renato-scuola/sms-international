@@ -3,6 +3,9 @@
   "outputDirectory": ".next",
   "framework": "nextjs",
   "functions": {
+    "src/app/api/sms/route.ts": {
+      "maxDuration": 10
+    },
     "src/app/api/send-sms/route.ts": {
       "maxDuration": 10
     },
