@@ -103,14 +103,14 @@ export default function SMSForm() {
     setIsLoading(true);
     
     try {
-      console.log('⚡ Step 1: Preparing per-user SMS request');
-      console.log('🌐 Strategy: 1 free SMS per day per user IP (not globally shared)');
+      console.log('⚡ Step 1: NEW STRATEGY - Multiple free SMS services');
+      console.log('🌐 Strategy: Alternative SMS providers (no Textbelt limits)');
       console.log('📊 Request payload:', {
         phone: `${data.countryCode}${data.phoneNumber}`,
         message: data.message
       });
       
-      console.log('📡 Step 2: Sending request using per-user quota strategy...');
+      console.log('📡 Step 2: Trying alternative SMS services...');
       const startTime = performance.now();
       
       const response = await fetch('/api/send-sms', {
@@ -146,9 +146,9 @@ export default function SMSForm() {
         console.table({
           'Provider Used': providerUsed,
           'Text ID': result.textId || 'N/A',
-          'Quota Type': 'Per-user daily (1 SMS/day per IP)',
+          'Quota Type': 'Alternative service - no shared limits',
           'Request Time': `${requestTime}ms`,
-          'Strategy': 'Real user IP = unique quota'
+          'Strategy': 'Multiple free SMS providers'
         });
         
         setIsSent(true);
@@ -167,15 +167,15 @@ export default function SMSForm() {
           fullResult: result
         });
         
-        // Check if error is due to user's daily limit reached
+        // Check if error is due to service limits
         if (result && result.error && (
           result.error.includes('quota') || 
           result.error.includes('limit') ||
           result.error.includes('exceeded') ||
-          result.error.includes('Out of quota')
+          result.error.includes('unavailable')
         )) {
-          console.warn('📊 User daily quota reached - try again tomorrow or from different IP');
-          toast.error('Your daily SMS quota reached. Try again tomorrow!');
+          console.warn('📊 All SMS services currently unavailable');
+          toast.error('All SMS services are busy. Please try again in a few minutes!');
         } else {
           // For other types of errors, show the specific error
           const errorMessage = result?.error || 'Unknown error occurred';

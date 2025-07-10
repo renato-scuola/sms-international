@@ -11,10 +11,10 @@ export default function Home() {
       <div className="w-full max-w-md relative z-10 space-y-6">
         {/* Info card */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center">
-          <h2 className="text-white text-sm font-medium mb-2">💡 How it works</h2>
+          <h2 className="text-white text-sm font-medium mb-2">� IP Rotation</h2>
           <p className="text-gray-300 text-xs leading-relaxed">
-            Each user gets <span className="text-white font-semibold">1 free SMS per day</span> based on their unique IP address. 
-            No shared limits - your quota is personal!
+            Using <span className="text-white font-semibold">CORS proxy with IP rotation</span> to bypass Vercel shared IP limits. 
+            Each request uses a different IP!
           </p>
         </div>
         

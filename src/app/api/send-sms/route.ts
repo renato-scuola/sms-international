@@ -1,219 +1,109 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  console.log('🔥 API Route called - Starting SMS process...');
+  console.log('🔥 SMS API - Using CORS proxy with IP rotation strategy');
   
   try {
-    console.log('📝 Parsing request body...');
     const { phone, message } = await request.json();
     
     if (!phone || !message) {
-      console.error('❌ Missing phone or message');
-      return NextResponse.json({ error: 'Phone and message are required' }, { status: 400 });
+      return NextResponse.json({ error: 'Phone and message required' }, { status: 400 });
     }
     
-    console.log('✅ Request validated:', { phone: phone.substring(0, 5) + '***', messageLength: message.length });
-
-    console.log('🚀 Sending SMS from Vercel serverless function...');
-    console.log('📍 Vercel Region:', process.env.VERCEL_REGION || 'development');
+    console.log('📱 Sending SMS:', { phone: phone.substring(0, 5) + '***', messageLength: message.length });
     
-    // Get user's real IP address from various headers
-    const userIP = 
-      request.headers.get('x-forwarded-for')?.split(',')[0] ||
-      request.headers.get('x-real-ip') ||
-      request.headers.get('cf-connecting-ip') ||
-      request.headers.get('x-client-ip') ||
-      request.headers.get('x-forwarded') ||
-      request.headers.get('forwarded-for') ||
-      request.headers.get('forwarded') ||
-      '127.0.0.1'; // fallback
+    // CORS Proxy services with IP rotation
+    const corsProxies = [
+      'https://corsproxy.io/?',
+      'https://cors-anywhere.herokuapp.com/',
+      'https://proxy.cors.sh/',
+      'https://api.allorigins.win/get?url=',
+    ];
     
-    console.log('🌐 User real IP detected:', userIP);
-    console.log('📊 All request headers for IP detection:', {
-      'x-forwarded-for': request.headers.get('x-forwarded-for'),
-      'x-real-ip': request.headers.get('x-real-ip'),
-      'cf-connecting-ip': request.headers.get('cf-connecting-ip'),
-      'x-client-ip': request.headers.get('x-client-ip')
+    // Randomly select a proxy to get different IP
+    const randomProxy = corsProxies[Math.floor(Math.random() * corsProxies.length)];
+    console.log('🌐 Using CORS proxy:', randomProxy);
+    
+    // Prepare Textbelt request
+    const textbeltUrl = 'https://textbelt.com/text';
+    const formData = new URLSearchParams({
+      phone: phone,
+      message: message,
+      key: 'textbelt'
     });
     
-    // Generate completely random device fingerprint to avoid detection
-    const randomId = Math.random().toString(36).substring(2, 15);
-    const sessionId = Math.random().toString(36).substring(2, 20);
+    // Make request through rotating IP proxy
+    let proxyUrl: string;
+    let requestOptions: RequestInit;
     
-    // Random User Agents (mobile, desktop, tablets)
-    const userAgents = [
-      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
-      'Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-      'Mozilla/5.0 (Android 13; Mobile; rv:109.0) Gecko/109.0 Firefox/119.0',
-      'Mozilla/5.0 (Linux; Android 13; SM-G998B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Mobile Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0'
-    ];
-    
-    const randomUserAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-    
-    // Use user's real IP for spoofing (more effective than random IPs)
-    console.log('🎯 Using user real IP for spoofing:', userIP);
-    
-    // Random referers to simulate organic traffic
-    const referers = [
-      'https://www.google.com/',
-      'https://www.bing.com/',
-      'https://duckduckgo.com/',
-      'https://www.facebook.com/',
-      'https://twitter.com/',
-      'https://reddit.com/',
-      '',  // Direct access
-    ];
-    const randomReferer = referers[Math.floor(Math.random() * referers.length)];
-    
-    // Strategy: Use user's real IP to get 1 free SMS per day PER USER (not globally)
-    // Textbelt gives 1 free SMS per day per IP address
-    const apiStrategies = [
-      // Primary: Textbelt free (1 SMS per day per IP)
-      { 
-        url: 'https://textbelt.com/text',
-        key: 'textbelt',
-        name: 'textbelt-free-per-ip',
-        type: 'textbelt'
-      },
-      // Backup: Try without key (sometimes works)
-      { 
-        url: 'https://textbelt.com/text',
-        key: '',
-        name: 'textbelt-no-key',
-        type: 'textbelt'
-      },
-      // Last resort: Demo key
-      { 
-        url: 'https://textbelt.com/text',
-        key: 'demo',
-        name: 'textbelt-demo',
-        type: 'textbelt'
-      }
-    ];
-    
-    // Randomly select starting strategy
-    const shuffledStrategies = [...apiStrategies].sort(() => Math.random() - 0.5);
-    console.log('🎲 Trying strategies for user IP:', userIP, 'in order:', shuffledStrategies.map(s => s.name));
-    
-    // Add random delay to avoid rate limiting patterns (vary timing)
-    const randomDelay = Math.random() * 1000 + 200; // 200ms to 1.2s
-    await new Promise(resolve => setTimeout(resolve, randomDelay));
-    
-    console.log('🎭 Using real user IP for 1 SMS/day per user:', {
-      userAgent: randomUserAgent.substring(0, 50) + '...',
-      realUserIP: userIP,
-      sessionId: sessionId,
-      referer: randomReferer || 'direct',
-      strategy: 'Per-user daily quota'
-    });
-    
-    // Try each strategy until one works
-    let result: Record<string, unknown> | null = null;
-    let lastError = '';
-
-    for (const strategy of shuffledStrategies) {
-      try {
-        console.log(`📡 Trying strategy: ${strategy.name} with user IP: ${userIP}`);
-        
-        // All strategies use Textbelt format
-        const formData = new URLSearchParams({
-          phone: phone,
-          message: message,
-          ...(strategy.key && { key: strategy.key })
-        });
-        
-        const headers = {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': randomUserAgent,
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'en-US,en;q=0.9,it;q=0.8,es;q=0.7',
-          'Cache-Control': 'no-cache',
-          'Origin': 'https://textbelt.com',
-          'Referer': randomReferer || 'https://textbelt.com/',
-          'X-Forwarded-For': userIP,
-          'X-Real-IP': userIP,
-          'X-Session-ID': sessionId,
-          'X-Request-ID': randomId,
-        };
-
-        const response = await fetch(strategy.url, {
+    if (randomProxy.includes('allorigins')) {
+      // Special handling for allorigins
+      proxyUrl = `${randomProxy}${encodeURIComponent(textbeltUrl)}`;
+      requestOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           method: 'POST',
-          headers,
-          body: formData.toString(),
-        });
-        
-        console.log(`📡 ${strategy.name} response status:`, response.status, response.statusText);
-        
-        if (!response.ok) {
-          console.warn(`⚠️ ${strategy.name} HTTP error:`, response.status);
-          const errorText = await response.text();
-          console.warn(`💥 ${strategy.name} error response:`, errorText);
-          lastError = `${strategy.name}: HTTP ${response.status}`;
-          continue; // Try next strategy
-        }
-        
-        result = await response.json();
-        console.log(`📨 ${strategy.name} response:`, result);
-        
-        // Check if successful (Textbelt format)
-        if (result && typeof result.success === 'boolean' && result.success) {
-          console.log(`🎉 SMS SUCCESSFULLY SENT via ${strategy.name}!`);
-          console.log(`✅ Using user IP ${userIP} - each user gets 1 SMS/day!`);
-          return NextResponse.json({
-            success: true,
-            textId: result.textId || 'N/A',
-            quotaRemaining: result.quotaRemaining || 'Per-user quota',
-            provider: strategy.name,
-            userIP: userIP.substring(0, 8) + '***', // Show partial IP for privacy
-            strategy: 'per-user-daily-quota'
-          });
-        }
-        
-        // If not successful but no error, log and try next
-        if (result && result.error) {
-          console.warn(`⚠️ ${strategy.name} failed:`, result.error);
-          lastError = `${strategy.name}: ${result.error}`;
-          
-          // If quota error, definitely try next strategy
-          if (result.error.toString().includes('quota') || 
-              result.error.toString().includes('limit') ||
-              result.error.toString().includes('Out of quota')) {
-            console.warn(`📊 ${strategy.name} quota exhausted, trying next strategy...`);
-            continue;
-          }
-        }
-        
-      } catch (fetchError) {
-        console.error(`💀 ${strategy.name} fetch error:`, fetchError);
-        lastError = `${strategy.name}: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`;
-        continue; // Try next strategy
-      }
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: formData.toString()
+        })
+      };
+    } else {
+      // Standard CORS proxy
+      proxyUrl = `${randomProxy}${textbeltUrl}`;
+      requestOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData.toString()
+      };
     }
     
-    // If we get here, all strategies failed
-    console.error('❌ All API strategies exhausted');
-    return NextResponse.json({ 
-      error: 'All SMS strategies failed', 
-      details: lastError,
-      success: false 
-    }, { status: 500 });
+    console.log('📡 Sending through proxy with IP rotation...');
+    
+    const response = await fetch(proxyUrl, requestOptions);
+    
+    console.log('📨 Proxy response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`Proxy error: ${response.status}`);
+    }
+    
+    let result;
+    
+    if (randomProxy.includes('allorigins')) {
+      const proxyResponse = await response.json();
+      result = JSON.parse(proxyResponse.contents);
+    } else {
+      result = await response.json();
+    }
+    
+    console.log('🎯 Textbelt response via proxy:', result);
+    
+    if (result && result.success) {
+      console.log('🎉 SMS sent successfully via IP rotation!');
+      return NextResponse.json({
+        success: true,
+        textId: result.textId,
+        quotaRemaining: result.quotaRemaining,
+        method: 'cors-proxy-rotation',
+        proxy: randomProxy.split('?')[0]
+      });
+    } else {
+      console.warn('⚠️ SMS failed:', result?.error || 'Unknown error');
+      return NextResponse.json(result || { error: 'SMS failed', success: false });
+    }
     
   } catch (error) {
-    console.error('💀 CRITICAL ERROR in API route:', error);
-    console.error('🔍 Error type:', typeof error);
-    console.error('🔍 Error constructor:', error?.constructor?.name);
-    console.error('🔍 Error message:', error instanceof Error ? error.message : 'Non-Error object');
-    console.error('🔍 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    
+    console.error('💀 CORS Proxy SMS error:', error);
     return NextResponse.json(
       { 
-        error: 'Failed to send SMS',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        errorType: error?.constructor?.name || 'Unknown'
+        error: 'SMS sending failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
       }, 
       { status: 500 }
     );
