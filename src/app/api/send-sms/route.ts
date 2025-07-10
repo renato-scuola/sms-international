@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
-  console.log('🔥 SMS API - Using CORS proxy with IP rotation strategy');
+  console.log('🔥 SMS API - CORS Proxy IP Rotation v2.0');
   
   try {
     const { phone, message } = await request.json();
@@ -12,12 +12,12 @@ export async function POST(request: NextRequest) {
     
     console.log('📱 Sending SMS:', { phone: phone.substring(0, 5) + '***', messageLength: message.length });
     
-    // CORS Proxy services with IP rotation
+    // CORS Proxy services with IP rotation (updated with working proxies)
     const corsProxies = [
       'https://corsproxy.io/?',
-      'https://cors-anywhere.herokuapp.com/',
-      'https://proxy.cors.sh/',
       'https://api.allorigins.win/get?url=',
+      'https://cors.sh/',
+      'https://proxy.cors.sh/',
     ];
     
     // Randomly select a proxy to get different IP
@@ -49,6 +49,17 @@ export async function POST(request: NextRequest) {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: formData.toString()
         })
+      };
+    } else if (randomProxy.includes('cors.sh')) {
+      // cors.sh format
+      proxyUrl = `${randomProxy}${textbeltUrl}`;
+      requestOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Origin': 'https://textbelt.com',
+        },
+        body: formData.toString()
       };
     } else {
       // Standard CORS proxy
