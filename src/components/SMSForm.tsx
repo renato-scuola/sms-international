@@ -145,9 +145,6 @@ export default function SMSForm() {
             ...(strategy.key && { key: strategy.key })
           });
           
-          const sessionId = Math.random().toString(36).substring(2, 15);
-          const timestamp = Date.now().toString();
-          
           const response = await fetch('https://textbelt.com/text', {
             method: 'POST',
             headers: {
