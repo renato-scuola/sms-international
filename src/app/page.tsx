@@ -11,10 +11,10 @@ export default function Home() {
       <div className="w-full max-w-md relative z-10 space-y-6">
         {/* Info card */}
         <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 text-center">
-          <h2 className="text-white text-sm font-medium mb-2">🎯 Advanced IP Spoofing</h2>
+          <h2 className="text-white text-sm font-medium mb-2">🎯 Textbelt Hybrid Strategy</h2>
           <p className="text-gray-300 text-xs leading-relaxed">
-            Using <span className="text-white font-semibold">multiple IP variants + strategy rotation</span> to maximize SMS quota. 
-            Each attempt uses different session data!
+            Using <span className="text-white font-semibold">5 different approaches</span> with quota checking, 
+            IP variants, and multiple keys to maximize SMS delivery!
           </p>
         </div>
         
