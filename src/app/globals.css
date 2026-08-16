@@ -1,103 +1,528 @@
 @import "tailwindcss";
 
+/* ==========================================================================
+   Design system "Liquid Glass"
+   Tre livelli sovrapposti creano l'effetto vetro:
+   1. sfondo vivo (aurore sfocate in movimento) -> da' qualcosa da rifrangere
+   2. superficie (blur + saturazione + gradiente) -> il vetro vero e proprio
+   3. bordo e riflesso speculare -> lo spessore e la luce che ci scorre sopra
+   ========================================================================== */
+
+@theme {
+  --color-ink: #05060b;
+  --color-glass-line: rgba(255, 255, 255, 0.14);
+
+  --font-sans:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --ease-glass: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 :root {
-  --background: #000000;
-  --foreground: #ffffff;
+  /* Palette: un solo blu-viola dominante con due accenti freddi. */
+  --aurora-1: 139 92 246; /* viola */
+  --aurora-2: 34 211 238; /* ciano */
+  --aurora-3: 244 114 182; /* rosa */
+
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-strong: rgba(255, 255, 255, 0.1);
+  --stroke: rgba(255, 255, 255, 0.14);
+  --stroke-strong: rgba(255, 255, 255, 0.28);
+  --text: rgba(255, 255, 255, 0.95);
+  --text-soft: rgba(255, 255, 255, 0.62);
+  --text-faint: rgba(255, 255, 255, 0.42);
+
+  --radius-lg: 28px;
+  --radius-md: 18px;
+  --radius-sm: 14px;
+
+  color-scheme: dark;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  min-height: 100dvh;
+  background-color: var(--color-ink);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   overflow-x: hidden;
 }
 
-/* Glass morphism utilities - B&W version */
-.glass {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+::selection {
+  background: rgba(var(--aurora-1) / 0.4);
+  color: #fff;
 }
 
-.glass-dark {
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
+/* --------------------------------------------------------------------------
+   1. Sfondo: aurore sfocate + grana finissima.
+   Le aurore sono l'unica cosa che si muove costantemente, molto lentamente,
+   perché è il loro movimento a rendere "liquido" il vetro sopra di esse.
+   -------------------------------------------------------------------------- */
 
-/* Mouse follower effects */
-.mouse-follower {
-  position: relative;
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
   overflow: hidden;
-}
-
-.mouse-follower::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(
-    300px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 40%,
-    transparent 100%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
   pointer-events: none;
-  border-radius: inherit;
+  background:
+    radial-gradient(
+      120% 80% at 50% -10%,
+      rgba(var(--aurora-1) / 0.16),
+      transparent 60%
+    ),
+    var(--color-ink);
 }
 
-.mouse-follower:hover::before {
-  opacity: 1;
-}
-
-.button-follower {
-  position: relative;
-  overflow: hidden;
-}
-
-.button-follower::before {
-  content: '';
+.aurora__blob {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: radial-gradient(
-    200px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(255, 255, 255, 0.2) 0%,
-    rgba(255, 255, 255, 0.1) 30%,
-    transparent 100%
-  );
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-  border-radius: inherit;
+  width: 46vmax;
+  height: 46vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  will-change: transform;
 }
 
-.button-follower:hover::before {
-  opacity: 1;
+.aurora__blob--1 {
+  top: -14vmax;
+  left: -10vmax;
+  background: radial-gradient(circle, rgba(var(--aurora-1) / 0.85), transparent 65%);
+  animation: drift-1 26s var(--ease-glass) infinite alternate;
 }
 
-/* Custom scrollbar - B&W */
-::-webkit-scrollbar {
-  width: 6px;
+.aurora__blob--2 {
+  bottom: -18vmax;
+  right: -12vmax;
+  background: radial-gradient(circle, rgba(var(--aurora-2) / 0.6), transparent 65%);
+  animation: drift-2 32s var(--ease-glass) infinite alternate;
 }
 
-::-webkit-scrollbar-track {
+/* Terza aurora: sta al centro, dietro la card, cosi' il vetro ha sempre
+   qualcosa di colorato da rifrangere anche a meta' pagina. */
+.aurora__blob--3 {
+  top: 28%;
+  left: 28%;
+  width: 40vmax;
+  height: 40vmax;
+  opacity: 0.4;
+  background: radial-gradient(circle, rgba(var(--aurora-3) / 0.55), transparent 65%);
+  animation: drift-3 38s var(--ease-glass) infinite alternate;
+}
+
+/* Grana: rompe le banding dei gradienti e da' materia alla superficie. */
+.aurora__grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@keyframes drift-1 {
+  to {
+    transform: translate3d(14vmax, 8vmax, 0) scale(1.15);
+  }
+}
+@keyframes drift-2 {
+  to {
+    transform: translate3d(-12vmax, -10vmax, 0) scale(1.2);
+  }
+}
+@keyframes drift-3 {
+  to {
+    transform: translate3d(-16vmax, 12vmax, 0) scale(0.85);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   2. Superfici di vetro
+   -------------------------------------------------------------------------- */
+
+@layer components {
+  .glass {
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--radius-lg);
+    background-image: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.12),
+      rgba(255, 255, 255, 0.04) 42%,
+      rgba(255, 255, 255, 0.07)
+    );
+    background-color: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.22) inset,
+      0 -1px 0 0 rgba(255, 255, 255, 0.06) inset,
+      0 24px 60px -20px rgba(0, 0, 0, 0.75),
+      0 2px 12px -4px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Bordo a gradiente: simula lo spessore del vetro, più luminoso in alto. */
+  .glass::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.5),
+      rgba(255, 255, 255, 0.08) 40%,
+      rgba(255, 255, 255, 0.02) 60%,
+      rgba(255, 255, 255, 0.3)
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* Pannelli sovrapposti (menu a tendina): il vetro da solo non basta a
+     separarli dalla card sottostante, quindi aggiungiamo un fondo scuro pieno. */
+  .glass--overlay {
+    background-color: rgba(12, 12, 20, 0.96);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.18) inset,
+      0 30px 70px -18px rgba(0, 0, 0, 0.9);
+  }
+
+  /* Riflesso speculare che segue il puntatore (--px / --py aggiornate da JS). */
+  .glass--specular::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+      340px circle at var(--px, 50%) var(--py, 0%),
+      rgba(255, 255, 255, 0.16),
+      rgba(255, 255, 255, 0.05) 35%,
+      transparent 70%
+    );
+    opacity: 0;
+    transition: opacity 0.45s var(--ease-glass);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .glass--specular:hover::after,
+  .glass--specular:focus-within::after {
+    opacity: 1;
+  }
+
+  /* Campi di input: vetro più scuro, incassato. */
+  .field {
+    width: 100%;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--stroke);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text);
+    padding: 0.9rem 1rem;
+    font-size: 1rem;
+    line-height: 1.4;
+    transition:
+      border-color 0.25s var(--ease-glass),
+      background-color 0.25s var(--ease-glass),
+      box-shadow 0.25s var(--ease-glass);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  }
+
+  .field::placeholder {
+    color: var(--text-faint);
+  }
+
+  .field:hover:not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.07);
+  }
+
+  .field:focus {
+    outline: none;
+    border-color: rgba(var(--aurora-1) / 0.75);
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow:
+      0 0 0 4px rgba(var(--aurora-1) / 0.18),
+      0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  }
+
+  .field--invalid,
+  .field--invalid:focus {
+    border-color: rgba(248, 113, 113, 0.7);
+    box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.16);
+  }
+
+  /* Pulsante primario: vetro luminoso con alone dell'accento. */
+  .btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text);
+    font-weight: 600;
+    padding: 0.95rem 1.4rem;
+    overflow: hidden;
+    cursor: pointer;
+    transition:
+      transform 0.2s var(--ease-glass),
+      background-color 0.25s var(--ease-glass),
+      border-color 0.25s var(--ease-glass),
+      box-shadow 0.25s var(--ease-glass);
+  }
+
+  .btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.13);
+    border-color: rgba(255, 255, 255, 0.34);
+    transform: translateY(-1px);
+  }
+
+  .btn:active:not(:disabled) {
+    transform: translateY(0) scale(0.985);
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn:focus-visible {
+    outline: 2px solid rgba(var(--aurora-2) / 0.9);
+    outline-offset: 3px;
+  }
+
+  .btn--primary {
+    background: linear-gradient(
+      140deg,
+      rgba(var(--aurora-1) / 0.9),
+      rgba(var(--aurora-2) / 0.62)
+    );
+    border-color: rgba(255, 255, 255, 0.32);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.4) inset,
+      0 14px 34px -12px rgba(var(--aurora-1) / 0.85);
+  }
+
+  .btn--primary:hover:not(:disabled) {
+    background: linear-gradient(
+      140deg,
+      rgba(var(--aurora-1) / 1),
+      rgba(var(--aurora-2) / 0.78)
+    );
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.5) inset,
+      0 18px 40px -12px rgba(var(--aurora-1) / 0.95);
+  }
+
+  /* Riflesso che attraversa il pulsante al passaggio del mouse. */
+  .btn--primary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      rgba(255, 255, 255, 0.35) 50%,
+      transparent 80%
+    );
+    transform: translateX(-120%);
+    pointer-events: none;
+  }
+
+  .btn--primary:hover:not(:disabled)::after {
+    animation: sheen 0.9s var(--ease-glass);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    border: 1px solid var(--stroke);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.3rem 0.7rem;
+    font-size: 0.75rem;
+    color: var(--text-soft);
+    white-space: nowrap;
+  }
+
+  /* Interruttore modalità test. */
+  .switch {
+    position: relative;
+    width: 44px;
+    height: 26px;
+    flex: none;
+    border-radius: 999px;
+    border: 1px solid var(--stroke);
+    background: rgba(255, 255, 255, 0.07);
+    cursor: pointer;
+    transition:
+      background-color 0.3s var(--ease-glass),
+      border-color 0.3s var(--ease-glass);
+  }
+
+  .switch[data-on="true"] {
+    background: rgba(var(--aurora-2) / 0.55);
+    border-color: rgba(var(--aurora-2) / 0.8);
+  }
+
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+    transition: transform 0.3s var(--ease-glass);
+  }
+
+  .switch[data-on="true"]::after {
+    transform: translateX(18px);
+  }
+
+  .switch:focus-visible {
+    outline: 2px solid rgba(var(--aurora-2) / 0.9);
+    outline-offset: 3px;
+  }
+}
+
+@keyframes sheen {
+  to {
+    transform: translateX(120%);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. Animazioni di ingresso e stati
+   -------------------------------------------------------------------------- */
+
+.rise {
+  animation: rise 0.7s var(--ease-glass) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.pop {
+  animation: pop 0.35s var(--ease-glass) both;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Scrollbar coerente con il vetro. */
+.scroll-glass {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+.scroll-glass::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-glass::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+}
+
+.scroll-glass::-webkit-scrollbar-track {
   background: transparent;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 3px;
+/* --------------------------------------------------------------------------
+   4. Fallback e accessibilità
+   -------------------------------------------------------------------------- */
+
+/* Senza backdrop-filter (Firefox datato, alcuni browser embedded) il vetro
+   diventa una superficie opaca: leggibile allo stesso modo, solo meno vistosa. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background-color: rgba(18, 18, 28, 0.92);
+  }
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Blur pesante su mobile costa batteria: lo alleggeriamo sugli schermi piccoli. */
+@media (max-width: 640px) {
+  .glass {
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+  }
+  .aurora__blob {
+    filter: blur(60px);
+  }
 }
