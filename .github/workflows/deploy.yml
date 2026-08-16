@@ -62,6 +62,8 @@ jobs:
           echo "### Sito online" >> "$GITHUB_STEP_SUMMARY"
           echo "https://$dominio" >> "$GITHUB_STEP_SUMMARY"
 
+          echo "dominio=$dominio" >> "$GITHUB_ENV"
+
           for i in 1 2 3 4 5; do
             code=$(curl -s -o /dev/null -w "%{http_code}" "https://$dominio")
             echo "Tentativo $i: HTTP $code"
@@ -95,3 +97,24 @@ jobs:
 
           echo "Il sito non ha risposto 200 dopo il deploy."
           exit 1
+
+      # Prova reale dell'API in produzione, in modalita' test: il gateway viene
+      # interrogato davvero ma non parte alcun SMS e non si consuma quota.
+      - name: Prova l'invio in modalita' test
+        run: |
+          risposta=$(curl -s -X POST "https://$dominio/api/send" \
+            -H "Content-Type: application/json" \
+            -d '{"phone":"+15005550006","message":"Verifica automatica del deploy","test":true}')
+
+          echo "Risposta: $risposta"
+
+          if echo "$risposta" | jq -e '.ok == true' > /dev/null; then
+            echo "API di invio funzionante (simulazione riuscita)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            messaggio=$(echo "$risposta" | jq -r '.message // "risposta non interpretabile"')
+            {
+              echo ""
+              echo "**L'API di invio non ha risposto come previsto:** $messaggio"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
