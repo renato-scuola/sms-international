@@ -42,13 +42,56 @@ jobs:
           echo "### Sito pubblicato" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Verifica che il sito risponda
+      # L'URL restituito da "vercel deploy" e' quello della singola build ed e'
+      # sempre coperto dalla Deployment Protection. Il sito pubblico e' il
+      # dominio di produzione: lo chiediamo alle API di Vercel e verifichiamo
+      # quello.
+      - name: Verifica che il sito sia raggiungibile
         run: |
+          dominio=$(curl -s -H "Authorization: Bearer ${{ secrets.VERCEL_TOKEN }}" \
+            "https://api.vercel.com/v9/projects/$VERCEL_PROJECT_ID?teamId=$VERCEL_ORG_ID" \
+            | jq -r '.targets.production.alias // [] | map(select(test("vercel\\.app$"))) | sort_by(length) | first // empty')
+
+          if [ -z "$dominio" ]; then
+            echo "Non sono riuscito a determinare il dominio di produzione."
+            echo "URL della build: ${{ steps.deploy.outputs.url }}"
+            exit 1
+          fi
+
+          echo "Dominio di produzione: https://$dominio"
+          echo "### Sito online" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://$dominio" >> "$GITHUB_STEP_SUMMARY"
+
           for i in 1 2 3 4 5; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.url }}")
+            code=$(curl -s -o /dev/null -w "%{http_code}" "https://$dominio")
             echo "Tentativo $i: HTTP $code"
-            [ "$code" = "200" ] && exit 0
+
+            if [ "$code" = "200" ]; then
+              echo "Il sito risponde correttamente." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            # 30x verso l'SSO di Vercel = Deployment Protection attiva:
+            # il deploy e' riuscito, ma i visitatori vedono la pagina di login.
+            if [ "$code" = "301" ] || [ "$code" = "302" ] || [ "$code" = "307" ] || [ "$code" = "401" ]; then
+              destinazione=$(curl -s -o /dev/null -w "%{redirect_url}" "https://$dominio")
+              case "$destinazione" in
+                *vercel.com*|*sso*)
+                  {
+                    echo ""
+                    echo "**Attenzione: Deployment Protection attiva.**"
+                    echo "Il deploy e' riuscito, ma https://$dominio risponde $code e rimanda al login di Vercel,"
+                    echo "quindi il sito non e' pubblico e le API rispondono 401."
+                    echo "Si disattiva da Vercel: Settings -> Deployment Protection -> Vercel Authentication: Disabled."
+                  } >> "$GITHUB_STEP_SUMMARY"
+                  echo "Deployment Protection attiva: il sito non e' pubblicamente accessibile."
+                  exit 1
+                  ;;
+              esac
+            fi
+
             sleep 5
           done
+
           echo "Il sito non ha risposto 200 dopo il deploy."
           exit 1
