@@ -1,0 +1,54 @@
+name: Deploy su Vercel
+
+# Pubblica in produzione a ogni push su main.
+# Usa i secret gia' configurati nel repository:
+# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+on:
+  push:
+    branches:
+      - main
+  # Permette di pubblicare a mano, anche da un branch diverso da main.
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Installa la CLI di Vercel
+        run: npm install --global vercel@latest
+
+      - name: Scarica la configurazione del progetto
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Pubblica
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Sito pubblicato: $url"
+          echo "### Sito pubblicato" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verifica che il sito risponda
+        run: |
+          for i in 1 2 3 4 5; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.deploy.outputs.url }}")
+            echo "Tentativo $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "Il sito non ha risposto 200 dopo il deploy."
+          exit 1
