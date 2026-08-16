@@ -1,0 +1,31 @@
+name: CI
+
+# Verifica lint, tipi e build a ogni push e pull request.
+# Non richiede alcun segreto: gira sui runner gratuiti di GitHub Actions.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Controllo dei tipi
+        run: npm run typecheck
+
+      - name: Build di produzione
+        run: npm run build
